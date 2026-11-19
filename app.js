@@ -1,7 +1,7 @@
 /* จดสลิป — main app */
 (function () {
   'use strict';
-  const APP_VERSION = '0.1.2';
+  const APP_VERSION = '0.1.3';
   const $ = (s, el = document) => el.querySelector(s);
   const app = $('#app');
   const layer = $('#layer');
@@ -66,9 +66,9 @@
     ['study', ['หนังสือ', 'ค่าเทอม', 'ปริ้น', 'print', 'ถ่ายเอกสาร', 'คอร์ส', 'ชีท', 'เครื่องเขียน', 'ค่าเรียน']],
     ['health', ['ร้านยา', 'ค่ายา', 'ซื้อยา', 'หมอ', 'คลินิก', 'โรงพยาบาล', 'ทำฟัน', 'ฟิตเนส', 'gym', 'วิตามิน']],
     ['fun', ['ดูหนัง', 'โรงหนัง', 'major', 'sf ', 'เกม', 'game', 'steam', 'คอนเสิร์ต', 'คาราโอเกะ', 'บัตรคอน']],
-    ['gift', ['ให้พ่อ', 'ให้แม่', 'ส่งพ่อ', 'ส่งแม่', 'ส่งเงินบ้าน', 'ส่งบ้าน', 'เงินพ่อ', 'เงินแม่', 'ค่าขนมพ่อ', 'ค่าขนมแม่']],
+    ['gift', ['ของขวัญแม่', 'ของขวัญพ่อ', 'ของขวัญวันแม่', 'ของขวัญวันพ่อ', 'วันเกิดแม่', 'วันเกิดพ่อ', 'ให้พ่อ', 'ให้แม่', 'ส่งพ่อ', 'ส่งแม่', 'ส่งเงินบ้าน', 'ส่งบ้าน', 'เงินพ่อ', 'เงินแม่', 'ค่าขนมพ่อ', 'ค่าขนมแม่']],
     ['shop', ['shopee', 'lazada', 'tiktok', 'เสื้อ', 'กางเกง', 'รองเท้า', 'กระเป๋า', 'ขาตั้ง', 'กล้อง', 'หูฟัง', 'สายชาร์จ', 'uniqlo', 'ไอที']],
-    ['home', ['ของใช้', 'สบู่', 'ยาสีฟัน', 'ผงซักฟอก', 'ซักผ้า', 'ทิชชู่', 'แชมพู', 'lotus', 'โลตัส', 'bigc', 'บิ๊กซี', 'makro', 'แม็คโคร', 'tops', 'ท็อปส์', 'watsons', 'boots']],
+    ['home', ['หม้อ', 'กระทะ', 'ของใช้', 'สบู่', 'ยาสีฟัน', 'ผงซักฟอก', 'ซักผ้า', 'ทิชชู่', 'แชมพู', 'lotus', 'โลตัส', 'bigc', 'บิ๊กซี', 'makro', 'แม็คโคร', 'tops', 'ท็อปส์', 'watsons', 'boots']],
     ['food', ['ข้าว', 'กับข้าว', 'ก๋วยเตี๋ยว', 'บัวลอย', 'ขนม', 'ชานม', 'ชาเย็น', 'ชาไทย', 'กาแฟ', 'cafe', 'coffee', 'ส้มตำ', 'หมูกระทะ', 'ชาบู', 'ปิ้งย่าง', 'บุฟเฟ่ต์', 'หมู', 'ไก่', 'ไข่', 'ผลไม้', 'มื้อ', 'อาหาร', 'ไอติม', 'ไอศกรีม', 'เครป', 'ขนมปัง', 'น้ำปั่น', 'นม', 'starbucks', 'kfc', 'mcdonald', 'mk', '7-11', '711', 'เซเว่น', 'lineman', 'foodpanda', 'grabfood', 'robinhood', 'ข้าวมัน', 'ราดหน้า', 'โจ๊ก', 'สุกี้', 'หมาล่า', 'ปลา', 'กุ้ง', 'ยำ', 'ลูกชิ้น', 'โรตี', 'ไส้กรอก', 'ไส้หมู', 'คอหมู', 'แหนม', 'แมลง', 'ทอด', 'ย่าง', 'ปิ้ง', 'ผัด', 'แกง', 'ต้ม', 'เลม่อน', 'มะนาว', 'น้ำผึ้ง', 'น้ำปั่น', 'น้ำส้ม', 'โกโก้', 'ชา', 'น้ำ']],
   ];
   const INCOME_KEYWORDS = [
@@ -215,13 +215,14 @@
   function draftFromSlip(p, thumb, info) {
     const me = myNameList(), partner = partnerList();
     const rMe = !!p.receiver && SlipParser.matchesAny(p.receiver, me);
-    const sPartner = !!p.sender && SlipParser.matchesAny(p.sender, partner);
-    let type = 'expense', party = p.receiver;
-    // Slips on this phone are almost always our own outgoing transfers, so a transfer whose
-    // receiver is us is a move between our own accounts — unless it clearly came from the partner.
+    const sMe = !!p.sender && SlipParser.matchesAny(p.sender, me);
+    // a readable sender that isn't us = the money came from someone else
+    const sOther = me.length > 0 && SlipParser.looksLikeName(p.sender) && !sMe;
+    let type = 'expense', party = p.receiver, notMine = false;
     if (p.sender && p.receiver && SlipParser.sameName(p.sender, p.receiver)) type = 'self';
-    else if (rMe && sPartner) { type = 'income'; party = p.sender; }
-    else if (rMe) type = 'self';
+    else if (rMe && sOther) { type = 'income'; party = p.sender; }      // e.g. dad sends us money
+    else if (rMe) type = 'self';                                          // our own accounts (sender unreadable)
+    else if (sOther) notMine = true;                                      // someone else's slip, sent by mistake?
     else if (p.receiver && SlipParser.matchesAny(p.receiver, partner) && openSplitBalance() < 0) type = 'settle';
     const fix = (S.settings.learn.fix || {})[normText(p.memo)];
     const memo = fix || p.memo || '';
@@ -230,12 +231,13 @@
       source: 'slip', type, amount: p.amount != null ? String(p.amount) : '', memo, party: party || '',
       date: p.date || todayISO(), time: p.time || '', bank: p.bank, bankName: p.bankName, ref: p.ref,
       dedupeKey: info.dedupeKey, thumb, kind: p.kind, ocrMemo: p.memo || '',
+      notMine, sender: p.sender || '',
     });
     d.category = guessCategory(type, memo, party);
     d.splitMode = type === 'expense' ? guessSplit(memo) : 'none';
     if (d.splitMode === 'half' && d.amount) d.myShare = String(Math.round(+d.amount * 50) / 100);
     d.checks = {
-      amount: p.amount == null || p.amountFrom === 'guess',
+      amount: p.amount == null || p.amountFrom === 'guess' || p.amountFrom === 'conflict' || !!p.amountSuspicious,
       date: !p.date,
       time: !p.time,
       memo: !p.memoFound && !fix,
@@ -421,6 +423,43 @@
     }
   }
 
+  // Re-read just the amount, enlarged, allowing only digits , and . (fixes e.g. 1,072 → 1.72)
+  async function rereadAmount(w, canvas, data) {
+    try {
+      const lines = (data && data.lines) || [];
+      const isNum = (t) => /\d/.test(t) && /^[\d,.\s฿]+$/.test(t.replace(/บาท|THB/gi, '').trim());
+      let words = [];
+      const li = lines.findIndex((l) => /จ[ำา]?นวน|amount/i.test((l.text || '').replace(/\s+/g, '')));
+      if (li >= 0) {
+        for (let k = li; k <= Math.min(li + 2, lines.length - 1); k++) {
+          if (k > li && /ค่าธรรมเนียม|fee/i.test((lines[k].text || '').replace(/\s+/g, ''))) break;
+          words = (lines[k].words || []).filter((x) => isNum(x.text || ''));
+          if (words.length) break;
+        }
+      }
+      if (!words.length) return null;
+      const x0 = Math.min(...words.map((x) => x.bbox.x0)), x1 = Math.max(...words.map((x) => x.bbox.x1));
+      const y0 = Math.min(...words.map((x) => x.bbox.y0)), y1 = Math.max(...words.map((x) => x.bbox.y1));
+      const pad = 10, h = y1 - y0;
+      const k = Math.max(1.5, Math.min(4, 72 / Math.max(1, h)));
+      const sx = Math.max(0, x0 - pad), sy = Math.max(0, y0 - pad);
+      const sw = Math.min(canvas.width, x1 + pad) - sx, sh = Math.min(canvas.height, y1 + pad) - sy;
+      const c = document.createElement('canvas');
+      c.width = Math.round(sw * k) + 40; c.height = Math.round(sh * k) + 40;
+      const g = c.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, c.width, c.height);
+      g.imageSmoothingQuality = 'high';
+      g.drawImage(canvas, sx, sy, sw, sh, 20, 20, c.width - 40, c.height - 40);
+      await w.setParameters({ tessedit_pageseg_mode: '7', tessedit_char_whitelist: '0123456789,.' });
+      const r = await w.recognize(c);
+      await w.setParameters({ tessedit_pageseg_mode: '6', tessedit_char_whitelist: '' });
+      const v = SlipParser.moneyIn(r.data.text || '').filter((x) => x > 0);
+      return v.length ? v[0] : null;
+    } catch (e) {
+      try { await w.setParameters({ tessedit_pageseg_mode: '6', tessedit_char_whitelist: '' }); } catch (e2) { /* ignore */ }
+      return null;
+    }
+  }
+
   /* ================= import pipeline ================= */
   async function importFiles(files) {
     files = [...files].filter((f) => /^image\//.test(f.type) || /\.(jpe?g|png|webp|heic)$/i.test(f.name));
@@ -439,7 +478,7 @@
         const key = pq ? (pq.ref ? `${pq.bankCode || ''}:${pq.ref}` : 'qr:' + pq.raw) : null;
         if (key && keys.has(key)) { st.dup++; st.done++; continue; }
         const thumb = thumbOf(canvas);
-        let text = '', ocrFailed = false;
+        let text = '', ocrFailed = false, amt2 = null;
         if (ocrOk) {
           try {
             const w = await ensureOCR((m) => { st.ocrNote = `โหลดตัวอ่านสลิป ${Math.round((m.progress || 0) * 100)}% (ครั้งแรกครั้งเดียว)`; renderProcessing(st); });
@@ -448,11 +487,16 @@
             const r = await w.recognize(prepped);
             text = r.data.text || '';
             text = await rereadMemo(w, prepped, r.data, text);
+            amt2 = await rereadAmount(w, prepped, r.data);
           } catch (e) {
             console.warn('OCR unavailable', e); ocrOk = false; ocrFailed = true;
           }
         } else ocrFailed = true;
         const p = SlipParser.parseSlip(text, qr && qr.text);
+        if (amt2 != null && amt2 > 0) {
+          if (p.amount == null || p.amountFrom === 'guess') { p.amount = amt2; p.amountFrom = 'reread'; }
+          else if (Math.abs(amt2 - p.amount) > 0.001) { p.amount = amt2; p.amountFrom = 'conflict'; }
+        }
         let dkey = key;
         if (!dkey && p.amount && p.date && p.time) dkey = `sig:${p.date}T${p.time}:${p.amount}`;
         if (dkey && keys.has(dkey)) { st.dup++; st.done++; continue; }
@@ -790,6 +834,7 @@
       head = `<div class="grab"></div><h2>ตรวจสลิป ${S.qi + 1}/${n} <button class="x" data-action="closeReview">✕</button></h2>
         ${n > 1 ? `<div class="steps">${S.queue.map((_, i) => `<i class="${i === S.qi ? 'on' : i < S.qi ? 'done' : ''}"></i>`).join('')}</div>` : ''}
         ${S.qi === 0 && S.queueDup ? `<div class="notice ok">ข้ามสลิปที่เคยบันทึกแล้ว ${S.queueDup} ใบ</div>` : ''}
+        ${D.notMine ? `<div class="notice">⚠️ สลิปนี้ไม่ได้โอนจากบัญชีเรา (ผู้โอน: <b>${esc(D.sender)}</b>) ถ้าส่งมาผิด กด “ข้ามใบนี้” ได้เลย</div>` : ''}
         ${D.ocrFailed ? `<div class="notice">อ่านตัวหนังสือในสลิปไม่ได้ ${navigator.onLine ? '' : '(ตอนนี้ออฟไลน์ และยังไม่เคยโหลดตัวอ่านสลิป)'} กรอกเองจากรูปได้เลย</div>` : ''}`;
     } else {
       head = `<div class="grab"></div><h2>${formMode === 'edit' ? 'แก้ไขรายการ' : 'จดเอง'} <button class="x" data-action="close">✕</button></h2>`;
@@ -822,7 +867,9 @@
       <div class="${fieldCls('time')}"><label>เวลา</label><input class="input" type="time" data-f="time" value="${esc(D.time)}"></div></div>
       <div class="hint" id="beDate" style="margin:-8px 2px 14px">${D.date ? esc(dFmt(D.date, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })) : ''}</div>`;
     let btns;
-    if (formMode === 'review') btns = `<div class="btn-row"><button class="btn" data-action="skip">ข้ามใบนี้</button><button class="btn primary" data-action="saveDraft">บันทึก${S.qi < n - 1 ? ' แล้วไปต่อ' : ''}</button></div>`;
+    if (formMode === 'review') btns = D.notMine
+      ? `<div class="btn-row"><button class="btn" data-action="saveDraft">บันทึกอยู่ดี</button><button class="btn primary" data-action="skip">ข้ามใบนี้</button></div>`
+      : `<div class="btn-row"><button class="btn" data-action="skip">ข้ามใบนี้</button><button class="btn primary" data-action="saveDraft">บันทึก${S.qi < n - 1 ? ' แล้วไปต่อ' : ''}</button></div>`;
     else if (formMode === 'edit') btns = `<button class="btn primary block" data-action="saveDraft">บันทึก</button><button class="btn danger block mt" data-action="delete">ลบรายการนี้</button>`;
     else btns = `<button class="btn primary block" data-action="saveDraft">บันทึก</button>`;
     const html = head + slip + typeSeg + amt + memo + cat + split + party + dt + btns;

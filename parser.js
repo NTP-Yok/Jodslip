@@ -108,6 +108,7 @@
 
   const RE_MONEY = /(\d{1,3}(?:[,.]\d{3})+|\d+)[.,](\d{2})(?!\d)/g;
   function moneyIn(line) {
+    line = line.replace(/(\d)\s*([,.])\s*(?=\d{2,3}(?:[,.\s]|$|\D))/g, '$1$2'); // OCR spaces inside numbers
     const out = [];
     let m;
     RE_MONEY.lastIndex = 0;
@@ -150,9 +151,14 @@
     return { date: `${year}-${pad(month)}-${pad(day)}`, time };
   }
 
+  const RE_TITLE_ANY = /(นางสาว|น\.ส\.|นาย|นาง|mr\.?|mrs\.?|ms\.?|miss)\s*/i;
   function cleanName(s) {
     if (!s) return '';
-    let n = s.replace(/^[^A-Za-z฀-๿(]+/, '').replace(/[^A-Za-z฀-๿.)]+$/, '').trim();
+    let n = s;
+    const t = RE_TITLE_ANY.exec(n);
+    if (t && t.index > 0 && t.index <= 6) n = n.slice(t.index); // icon noise in front of the title
+    n = n.replace(/^[^A-Za-z฀-๿(]+/, '').replace(/[^A-Za-z฀-๿.)]+$/, '').trim();
+    if (/^\(/.test(n) && !/\)/.test(n)) n = n.replace(/^\(\S{0,3}\s*/, '');
     // put back a space after a title that OCR glued on
     n = n.replace(RE_TITLE, (t) => t.trim() + ' ');
     return n.trim();
@@ -226,7 +232,11 @@
       for (let k = idxAmt; k <= Math.min(idxAmt + 2, lines.length - 1); k++) {
         if (k > idxAmt && /ค่าธรรมเนียม|fee/i.test(compact(lines[k]))) break;
         const v = moneyIn(lines[k]).find((x) => x > 0);
-        if (v != null) { r.amount = v; r.amountFrom = 'label'; break; }
+        if (v != null) {
+          r.amount = v; r.amountFrom = 'label';
+          if (/\d[.,]\s?\d{2}[.,]\d{2}(?!\d)/.test(lines[k]) || /\d[,.]\s+\d/.test(lines[k])) r.amountSuspicious = true;
+          break;
+        }
       }
     }
     const idxFee = lines.findIndex((l) => /ค่าธรรมเนียม|fee/i.test(compact(l)));
@@ -309,13 +319,34 @@
     const [s, l] = x.length <= y.length ? [x, y] : [y, x];
     if (l.startsWith(s)) return true;
     if (s.length >= 4 && l.startsWith(s.slice(0, Math.max(4, s.length - 1)))) return true;
-    return s.length >= 4 && l.includes(s); // e.g. a leftover title or icon noise in front
+    if (s.length >= 4 && l.includes(s)) return true; // e.g. a leftover title or icon noise in front
+    // tolerate a misread letter or two (OCR typos in our own name)
+    if (s.length >= 4) {
+      const tol = s.length >= 7 ? 2 : 1;
+      for (const n of [s.length - 1, s.length, s.length + 1]) if (n <= l.length && lev(s, l.slice(0, n)) <= tol) return true;
+    }
+    return false;
+  }
+  function lev(a, b) {
+    const m = a.length, n = b.length, d = Array.from({ length: m + 1 }, (_, i) => [i]);
+    for (let j = 1; j <= n; j++) d[0][j] = j;
+    for (let i = 1; i <= m; i++) for (let j = 1; j <= n; j++)
+      d[i][j] = Math.min(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+    return d[m][n];
+  }
+  // a readable name, not OCR garbage (used to decide whether a sender is really someone else)
+  function looksLikeName(s) {
+    if (!s) return false;
+    if (/\d/.test(s)) return false;
+    const letters = (s.match(/[A-Za-zก-ฮ]/g) || []).length;
+    if (letters < 4) return false;
+    return RE_TITLE_ANY.test(s) || /^[ก-๛A-Za-z .()]+$/.test(s);
   }
   function matchesAny(name, list) {
     return (list || []).some((n) => n && sameName(name, n));
   }
 
-  const api = { parseSlip, parseQR, dateFromRef, parseThaiDate, normName, sameName, matchesAny, cleanLine, BANKS };
+  const api = { parseSlip, parseQR, dateFromRef, parseThaiDate, normName, sameName, matchesAny, looksLikeName, moneyIn, cleanLine, BANKS };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.SlipParser = api;
 })(typeof self !== 'undefined' ? self : this);

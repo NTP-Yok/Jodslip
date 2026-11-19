@@ -1,5 +1,5 @@
 /* จดสลิป service worker: offline app shell + offline slip reader */
-const VERSION = 'jodslip-v0.1.2';
+const VERSION = 'jodslip-v0.1.3';
 const SHELL = ['./', './index.html', './app.js', './parser.js', './manifest.webmanifest',
   './icon.svg', './icon-192.png', './icon-512.png', './apple-touch-icon.png'];
 const VENDOR_CACHE = 'jodslip-vendor-v1';
