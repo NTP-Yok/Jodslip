@@ -383,8 +383,10 @@
     if (s.length >= 4 && l.includes(s)) return true; // e.g. a leftover title or icon noise in front
     // tolerate misread letters (OCR typos in our own name, e.g. ณฐพงศ์ read as ณฐธุพงศ์)
     if (s.length >= 4) {
+      // compare against windows near the start, allowing a few junk letters from a misread title ("แบ.ส.อารียา")
       const tol = s.length >= 7 ? 2 : 1;
-      for (const n of [s.length - 1, s.length, s.length + 1]) if (n <= l.length && lev(s, l.slice(0, n)) <= tol) return true;
+      for (let st = 0; st <= Math.min(4, l.length - 1); st++)
+        for (const n of [s.length - 1, s.length, s.length + 1]) if (st + n <= l.length && lev(s, l.slice(st, st + n)) <= tol) return true;
     }
     const ks = skeleton(s), kl = skeleton(l);
     if (ks.length >= 4) {

@@ -1,7 +1,7 @@
 /* จดสลิป — main app */
 (function () {
   'use strict';
-  const APP_VERSION = '0.1.7';
+  const APP_VERSION = '0.1.8';
   const SCHEMA = 2; // bump when the stored data shape changes; see migrate()
   const $ = (s, el = document) => el.querySelector(s);
   const app = $('#app');
@@ -248,7 +248,7 @@
     if (d.splitMode === 'half' && d.amount) d.myShare = String(Math.round(+d.amount * 50) / 100);
     d.checks = {
       amount: p.amount == null || p.amountFrom === 'guess' || p.amountFrom === 'conflict' || !!p.amountSuspicious,
-      date: !p.date,
+      date: !p.date || p.dateFrom === 'file',
       time: !p.time,
       memo: !p.memoFound && !fix,
       party: !party,
@@ -398,6 +398,33 @@
     return S.ocr.loading;
   }
 
+  // Krungthai slips (transfer and bill) share the same bottom: "วันที่ทำรายการ … date" then "บันทึกช่วยจำ … note",
+  // values right-aligned. Positions are measured from the bottom edge on a 1188-px-wide slip and scaled.
+  async function ktbBottomRead(w, c) {
+    const out = { date: '', memo: '' };
+    try {
+      const k = c.width / 1188, H = c.height;
+      const read = async (y0, y1) => {
+        const sx = Math.round(c.width * 0.29), sw = Math.round(c.width * 0.69);
+        const sy = Math.max(0, Math.round(H - y0 * k)), sh = Math.min(H - sy, Math.round((y0 - y1) * k));
+        if (sh < 10) return '';
+        const z = 2, cv = document.createElement('canvas');
+        cv.width = sw * z + 40; cv.height = sh * z + 40;
+        const g = cv.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, cv.width, cv.height);
+        g.drawImage(c, sx, sy, sw, sh, 20, 20, sw * z, sh * z);
+        const r = await w.recognize(cv);
+        return SlipParser.cleanLine((r.data.text || '').replace(/\n+/g, ' ')).replace(/^[^A-Za-z0-9\u0E00-\u0E7F]+|[^A-Za-z0-9\u0E00-\u0E7F)]+$/g, '');
+      };
+      await w.setParameters({ tessedit_pageseg_mode: '7' });
+      out.date = await read(265, 172);                                            // transfer layout
+      if (!SlipParser.parseThaiDate(out.date)) out.date = await read(300, 195);  // bill layout sits a bit higher
+      const m = await read(175, 85);
+      if ((m.match(/[A-Za-z\u0E01-\u0E2E]/g) || []).length >= 2) out.memo = m;
+    } catch (e) { /* keep what we have */ }
+    try { await w.setParameters({ tessedit_pageseg_mode: '6' }); } catch (e) { /* ignore */ }
+    return out;
+  }
+
   // Re-read the "บันทึกช่วยจำ" line on its own, enlarged, as a single text line.
   // Keep whichever reading Tesseract is more confident about.
   async function rereadMemo(w, canvas, data, text) {
@@ -493,12 +520,13 @@
         const key = pq ? (pq.ref ? `${pq.bankCode || ''}:${pq.ref}` : 'qr:' + pq.raw) : null;
         if (key && keys.has(key)) { st.dup++; st.done++; continue; }
         const thumb = thumbOf(canvas);
-        let text = '', ocrFailed = false, amt2 = null;
+        let text = '', ocrFailed = false, amt2 = null, W = null, PREP = null;
         if (ocrOk) {
           try {
             const w = await ensureOCR((m) => { st.ocrNote = `โหลดตัวอ่านสลิป ${Math.round((m.progress || 0) * 100)}% (ครั้งแรกครั้งเดียว)`; renderProcessing(st); });
             st.ocrNote = ''; renderProcessing(st);
             const prepped = prepForOCR(canvas, qr && qr.box);
+            W = w; PREP = prepped;
             const r = await w.recognize(prepped);
             text = r.data.text || '';
             text = await rereadMemo(w, prepped, r.data, text);
@@ -507,7 +535,21 @@
             console.warn('OCR unavailable', e); ocrOk = false; ocrFailed = true;
           }
         } else ocrFailed = true;
-        const p = SlipParser.parseSlip(text, qr && qr.text);
+        let p = SlipParser.parseSlip(text, qr && qr.text);
+        // Krungthai prints date + note right-aligned in the last two rows; if the full-page read missed them,
+        // read just those spots (fixed position from the bottom of the slip) and parse again
+        if (W && p.bank === 'ktb' && (!p.memoFound || !p.date)) {
+          const roi = await ktbBottomRead(W, PREP);
+          let extra = '';
+          if (!p.date && roi.date) extra += '\nวันที่ทำรายการ ' + roi.date;
+          if (!p.memoFound && roi.memo) extra += '\nบันทึกช่วยจำ ' + roi.memo;
+          if (extra) p = SlipParser.parseSlip(text + extra, qr && qr.text);
+        }
+        // still no date: the time the slip image was saved is usually the moment of the transfer
+        if (!p.date && f.lastModified && Date.now() - f.lastModified > 120000 && Date.now() - f.lastModified < 400 * 864e5) {
+          const d = new Date(f.lastModified);
+          p.date = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`; p.time = `${pad(d.getHours())}:${pad(d.getMinutes())}`; p.dateFrom = 'file';
+        }
         if (amt2 != null && amt2 > 0) {
           if (p.amount == null || p.amountFrom === 'guess') { p.amount = amt2; p.amountFrom = 'reread'; }
           else if (Math.abs(amt2 - p.amount) > 0.001) { p.amount = amt2; p.amountFrom = 'conflict'; }
