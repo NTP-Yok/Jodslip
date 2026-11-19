@@ -99,8 +99,8 @@
     return s
       .replace(/[​-‍﻿]/g, '')
       .replace(/ํา/g, 'ำ') // ํา -> ำ
-      .replace(new RegExp(`([${TH}])\\s+(?=[${TH}])`, 'g'), '$1') // OCR puts spaces between Thai glyphs
       .replace(/[“”"|¦©®°•■□▪▫◆◇►▼▲`~]/g, ' ')
+      .replace(new RegExp(`([${TH}])\\s+(?=[${TH}])`, 'g'), '$1') // OCR puts spaces between Thai glyphs
       .replace(/\s{2,}/g, ' ')
       .trim();
   }
@@ -276,30 +276,40 @@
     } else {
       // K PLUS style: sender block, then receiver block, before "จำนวน"
       const stop = idxAmt >= 0 ? idxAmt : lines.length;
-      const content = [];
-      for (let k = 0; k < stop; k++) if (isContentLine(lines[k])) content.push(lines[k]);
+      const ci = [];
+      for (let k = 0; k < stop; k++) if (isContentLine(lines[k])) ci.push(k);
       // prefer lines with a personal title for the sender
-      const ti = content.findIndex((l) => RE_TITLE.test(l));
+      const ti = ci.findIndex((k) => RE_TITLE.test(lines[k]));
       const start = ti >= 0 ? ti : 0;
-      r.sender = cleanName(content[start] || '');
-      r.receiver = cleanName(content[start + 1] || '');
+      r.sender = cleanName(ci[start] != null ? lines[ci[start]] : '');
+      let rv = ci[start + 1] != null ? lines[ci[start + 1]] : '';
+      // long names wrap: "นางสาว พลอยรัศญ์ กล่อม" + "ปัญญา", "SCB มณี SHOP (ร้านแหนม" + "ทอด)"
+      const rk = ci[start + 1];
+      if (rk != null && ci[start + 2] === rk + 1 && lines[rk + 1].length <= 24 && !isContentLine(lines[rk + 2] || '')) {
+        rv += (/[\u0E00-\u0E7F]$/.test(rv) && /^[\u0E00-\u0E7F]/.test(lines[rk + 1]) ? '' : ' ') + lines[rk + 1];
+      }
+      r.receiver = cleanName(rv);
     }
 
     return r;
   }
 
   /* ---------- name matching ---------- */
+  // Titles are stripped after punctuation is removed, so OCR variants like "น ส", "น.ส", "u.ส." still work
+  const RE_TITLE_BARE = /^(นางสาว|นส|นาย|นาง|ดช|ดญ|mrs|mr|ms|miss)/;
   function normName(s) {
-    return (s || '')
-      .toLowerCase()
-      .replace(RE_TITLE, '')
-      .replace(/[^a-z\u0E00-\u0E7F]/g, '');
+    let x = (s || '').toLowerCase().replace(/[^a-z\u0E00-\u0E7F]/g, '');
+    const y = x.replace(RE_TITLE_BARE, '');
+    if (y.length >= 3) x = y;
+    return x;
   }
   function sameName(a, b) {
     const x = normName(a), y = normName(b);
     if (x.length < 3 || y.length < 3) return false;
     const [s, l] = x.length <= y.length ? [x, y] : [y, x];
-    return l.startsWith(s) || (s.length >= 4 && l.startsWith(s.slice(0, Math.max(4, s.length - 1))));
+    if (l.startsWith(s)) return true;
+    if (s.length >= 4 && l.startsWith(s.slice(0, Math.max(4, s.length - 1)))) return true;
+    return s.length >= 4 && l.includes(s); // e.g. a leftover title or icon noise in front
   }
   function matchesAny(name, list) {
     return (list || []).some((n) => n && sameName(name, n));

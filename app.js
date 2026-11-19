@@ -1,7 +1,7 @@
 /* จดสลิป — main app */
 (function () {
   'use strict';
-  const APP_VERSION = '0.1.1';
+  const APP_VERSION = '0.1.2';
   const $ = (s, el = document) => el.querySelector(s);
   const app = $('#app');
   const layer = $('#layer');
@@ -59,7 +59,7 @@
   ];
   // order matters: specific before broad
   const KEYWORDS = [
-    ['travel', ['bolt', 'grab', 'วิน', 'มอไซ', 'แท็กซี่', 'taxi', 'bts', 'mrt', 'รถไฟ', 'รถเมล์', 'รถตู้', 'น้ำมัน', 'ทางด่วน', 'ค่ารถ', 'เรือ', 'สองแถว', 'ptt', 'ปตท', 'muvmi', 'ตั๋วรถ', 'ค่าเดินทาง', 'ที่จอดรถ']],
+    ['travel', ['bolt', 'grab', 'กลับหอ', 'กลีบหอ', 'ไปหอ', 'กลับบ้าน', 'ขนส่งมวลชน', 'ขสมก', 'องค์การขนส่ง', 'รถบัส', 'วิน', 'มอไซ', 'แท็กซี่', 'taxi', 'bts', 'mrt', 'รถไฟ', 'รถเมล์', 'รถตู้', 'น้ำมัน', 'ทางด่วน', 'ค่ารถ', 'เรือ', 'สองแถว', 'ptt', 'ปตท', 'muvmi', 'ตั๋วรถ', 'ค่าเดินทาง', 'ที่จอดรถ']],
     ['trip', ['อุทยาน', 'ที่พัก', 'โรงแรม', 'รีสอร์ท', 'ทริป', 'เที่ยว', 'แคมป์', 'agoda', 'booking', 'airbnb', 'ตั๋วเครื่องบิน', 'airasia', 'nokair']],
     ['rent', ['ค่าหอ', 'ค่าห้อง', 'ค่าเช่า', 'หอพัก', 'คอนโด']],
     ['bills', ['ค่าไฟ', 'ค่าน้ำ', 'เน็ต', 'internet', 'wifi', 'ค่าโทร', 'ais', 'dtac', 'truemove', 'true', '3bb', 'netflix', 'spotify', 'youtube', 'icloud', 'google', 'ค่าบัตร', 'ประกัน']],
@@ -69,7 +69,7 @@
     ['gift', ['ให้พ่อ', 'ให้แม่', 'ส่งพ่อ', 'ส่งแม่', 'ส่งเงินบ้าน', 'ส่งบ้าน', 'เงินพ่อ', 'เงินแม่', 'ค่าขนมพ่อ', 'ค่าขนมแม่']],
     ['shop', ['shopee', 'lazada', 'tiktok', 'เสื้อ', 'กางเกง', 'รองเท้า', 'กระเป๋า', 'ขาตั้ง', 'กล้อง', 'หูฟัง', 'สายชาร์จ', 'uniqlo', 'ไอที']],
     ['home', ['ของใช้', 'สบู่', 'ยาสีฟัน', 'ผงซักฟอก', 'ซักผ้า', 'ทิชชู่', 'แชมพู', 'lotus', 'โลตัส', 'bigc', 'บิ๊กซี', 'makro', 'แม็คโคร', 'tops', 'ท็อปส์', 'watsons', 'boots']],
-    ['food', ['ข้าว', 'กับข้าว', 'ก๋วยเตี๋ยว', 'บัวลอย', 'ขนม', 'ชานม', 'ชาเย็น', 'ชาไทย', 'กาแฟ', 'cafe', 'coffee', 'ส้มตำ', 'หมูกระทะ', 'ชาบู', 'ปิ้งย่าง', 'บุฟเฟ่ต์', 'หมู', 'ไก่', 'ไข่', 'ผลไม้', 'มื้อ', 'อาหาร', 'ไอติม', 'ไอศกรีม', 'เครป', 'ขนมปัง', 'น้ำปั่น', 'นม', 'starbucks', 'kfc', 'mcdonald', 'mk', '7-11', '711', 'เซเว่น', 'lineman', 'foodpanda', 'grabfood', 'robinhood', 'ข้าวมัน', 'ราดหน้า', 'โจ๊ก', 'สุกี้', 'หมาล่า', 'ปลา', 'กุ้ง']],
+    ['food', ['ข้าว', 'กับข้าว', 'ก๋วยเตี๋ยว', 'บัวลอย', 'ขนม', 'ชานม', 'ชาเย็น', 'ชาไทย', 'กาแฟ', 'cafe', 'coffee', 'ส้มตำ', 'หมูกระทะ', 'ชาบู', 'ปิ้งย่าง', 'บุฟเฟ่ต์', 'หมู', 'ไก่', 'ไข่', 'ผลไม้', 'มื้อ', 'อาหาร', 'ไอติม', 'ไอศกรีม', 'เครป', 'ขนมปัง', 'น้ำปั่น', 'นม', 'starbucks', 'kfc', 'mcdonald', 'mk', '7-11', '711', 'เซเว่น', 'lineman', 'foodpanda', 'grabfood', 'robinhood', 'ข้าวมัน', 'ราดหน้า', 'โจ๊ก', 'สุกี้', 'หมาล่า', 'ปลา', 'กุ้ง', 'ยำ', 'ลูกชิ้น', 'โรตี', 'ไส้กรอก', 'ไส้หมู', 'คอหมู', 'แหนม', 'แมลง', 'ทอด', 'ย่าง', 'ปิ้ง', 'ผัด', 'แกง', 'ต้ม', 'เลม่อน', 'มะนาว', 'น้ำผึ้ง', 'น้ำปั่น', 'น้ำส้ม', 'โกโก้', 'ชา', 'น้ำ']],
   ];
   const INCOME_KEYWORDS = [
     ['allow', ['เงินเดือน', 'ค่าขนม', 'เงินใช้', 'รายเดือน']],
@@ -91,7 +91,7 @@
   function defaultSettings() {
     return {
       onboarded: false, myNames: '', partnerName: '', budget: 0,
-      customCats: [], learn: { memo: {}, party: {} }, ocrReady: false, lastSettleAt: null,
+      customCats: [], learn: { memo: {}, party: {}, fix: {} }, ocrReady: false, lastSettleAt: null,
     };
   }
   const cats = () => DEFAULT_CATS.concat(S.settings.customCats || []);
@@ -190,9 +190,14 @@
     if (m && learn.memo[m] && learn.memo[m].split) return learn.memo[m].split;
     return SPLIT_HINTS.some((w) => (memo || '').includes(w)) ? 'half' : 'none';
   }
-  function learnFrom(t) {
+  function learnFrom(t, ocrMemo) {
+    const L = S.settings.learn || (S.settings.learn = { memo: {}, party: {}, fix: {} });
+    L.fix = L.fix || {};
+    // remember how the user corrected a misread note, so the same misread is fixed next time
+    const raw = normText(ocrMemo);
+    if (raw && raw !== normText(t.memo) && t.memo) L.fix[raw] = t.memo;
+    if (raw && L.fix[raw] && raw !== normText(t.memo) && !t.memo) delete L.fix[raw];
     if (t.type !== 'expense' && t.type !== 'income') return;
-    const L = S.settings.learn || (S.settings.learn = { memo: {}, party: {} });
     const m = normText(t.memo);
     if (m) L.memo[m] = { cat: t.category, split: t.type === 'expense' ? (t.splitMode || 'none') : undefined };
     const p = SlipParser.normName(t.party);
@@ -209,19 +214,22 @@
   }
   function draftFromSlip(p, thumb, info) {
     const me = myNameList(), partner = partnerList();
-    const sMe = p.sender && (SlipParser.matchesAny(p.sender, me) || (!me.length));
-    const rMe = p.receiver && SlipParser.matchesAny(p.receiver, me);
+    const rMe = !!p.receiver && SlipParser.matchesAny(p.receiver, me);
+    const sPartner = !!p.sender && SlipParser.matchesAny(p.sender, partner);
     let type = 'expense', party = p.receiver;
+    // Slips on this phone are almost always our own outgoing transfers, so a transfer whose
+    // receiver is us is a move between our own accounts — unless it clearly came from the partner.
     if (p.sender && p.receiver && SlipParser.sameName(p.sender, p.receiver)) type = 'self';
-    else if (rMe && !SlipParser.matchesAny(p.sender, me)) { type = 'income'; party = p.sender; }
+    else if (rMe && sPartner) { type = 'income'; party = p.sender; }
+    else if (rMe) type = 'self';
     else if (p.receiver && SlipParser.matchesAny(p.receiver, partner) && openSplitBalance() < 0) type = 'settle';
-    void sMe;
-    const memo = p.memo || '';
+    const fix = (S.settings.learn.fix || {})[normText(p.memo)];
+    const memo = fix || p.memo || '';
     const d = blankDraft();
     Object.assign(d, {
       source: 'slip', type, amount: p.amount != null ? String(p.amount) : '', memo, party: party || '',
       date: p.date || todayISO(), time: p.time || '', bank: p.bank, bankName: p.bankName, ref: p.ref,
-      dedupeKey: info.dedupeKey, thumb, kind: p.kind,
+      dedupeKey: info.dedupeKey, thumb, kind: p.kind, ocrMemo: p.memo || '',
     });
     d.category = guessCategory(type, memo, party);
     d.splitMode = type === 'expense' ? guessSplit(memo) : 'none';
@@ -230,7 +238,7 @@
       amount: p.amount == null || p.amountFrom === 'guess',
       date: !p.date,
       time: !p.time,
-      memo: !p.memoFound,
+      memo: !p.memoFound && !fix,
       party: !party,
     };
     d.ocrFailed = !!info.ocrFailed;
@@ -378,6 +386,41 @@
     return S.ocr.loading;
   }
 
+  // Re-read the "บันทึกช่วยจำ" line on its own, enlarged, as a single text line.
+  // Keep whichever reading Tesseract is more confident about.
+  async function rereadMemo(w, canvas, data, text) {
+    try {
+      const lines = (data && data.lines) || [];
+      const i = lines.findIndex((l) => /บันทึก|ช่วยจ/.test((l.text || '').replace(/\s+/g, '')));
+      if (i < 0) return text;
+      let line = lines[i];
+      const rest = (line.text || '').replace(/\s+/g, '').replace(/^.*?(บันทึกช่วยจ[ำา]|ช่วยจ[ำา]|บันทึก)[:：]?/, '');
+      if (!rest && lines[i + 1]) line = lines[i + 1]; // SCB puts the note on the next line
+      const b = line.bbox; if (!b) return text;
+      const pad = 8, x0 = Math.max(0, b.x0 - pad), y0 = Math.max(0, b.y0 - pad);
+      const cw = Math.min(canvas.width, b.x1 + pad) - x0, ch = Math.min(canvas.height, b.y1 + pad) - y0;
+      if (cw < 20 || ch < 8) return text;
+      const k = 2.2, c = document.createElement('canvas');
+      c.width = Math.round(cw * k); c.height = Math.round(ch * k) + 40;
+      const x = c.getContext('2d'); x.fillStyle = '#fff'; x.fillRect(0, 0, c.width, c.height);
+      x.imageSmoothingQuality = 'high';
+      x.drawImage(canvas, x0, y0, cw, ch, 0, 20, c.width, c.height - 40);
+      await w.setParameters({ tessedit_pageseg_mode: '7' });
+      const r2 = await w.recognize(c);
+      await w.setParameters({ tessedit_pageseg_mode: '6' });
+      const t2 = (r2.data.text || '').trim();
+      if (!t2 || (r2.data.confidence || 0) < (line.confidence || 0)) return text;
+      const all = text.split('\n');
+      const at = all.findIndex((l) => l.trim() === (line.text || '').trim());
+      if (at < 0) return text;
+      all[at] = line === lines[i] && !/บันทึก|ช่วยจ/.test(t2.replace(/\s+/g, '')) ? 'บันทึกช่วยจำ: ' + t2 : t2;
+      return all.join('\n');
+    } catch (e) {
+      try { await w.setParameters({ tessedit_pageseg_mode: '6' }); } catch (e2) { /* ignore */ }
+      return text;
+    }
+  }
+
   /* ================= import pipeline ================= */
   async function importFiles(files) {
     files = [...files].filter((f) => /^image\//.test(f.type) || /\.(jpe?g|png|webp|heic)$/i.test(f.name));
@@ -401,8 +444,10 @@
           try {
             const w = await ensureOCR((m) => { st.ocrNote = `โหลดตัวอ่านสลิป ${Math.round((m.progress || 0) * 100)}% (ครั้งแรกครั้งเดียว)`; renderProcessing(st); });
             st.ocrNote = ''; renderProcessing(st);
-            const r = await w.recognize(prepForOCR(canvas, qr && qr.box));
+            const prepped = prepForOCR(canvas, qr && qr.box);
+            const r = await w.recognize(prepped);
             text = r.data.text || '';
+            text = await rereadMemo(w, prepped, r.data, text);
           } catch (e) {
             console.warn('OCR unavailable', e); ocrOk = false; ocrFailed = true;
           }
@@ -603,7 +648,7 @@
   function viewSettings() {
     const st = S.settings;
     const ocr = S.ocr.status === 'ready' || st.ocrReady ? '✅ พร้อมใช้ออฟไลน์' : S.ocr.status === 'loading' ? 'กำลังโหลด…' : S.ocr.status === 'error' ? '⚠️ โหลดไม่สำเร็จ' : 'ยังไม่โหลด';
-    const learnCount = Object.keys(st.learn.memo).length + Object.keys(st.learn.party).length;
+    const learnCount = Object.keys(st.learn.memo).length + Object.keys(st.learn.party).length + Object.keys(st.learn.fix || {}).length;
     const demoCount = S.txs.filter((t) => t.demo).length;
     return `${header('ตั้งค่า', false)}
       <div class="group-title">ข้อมูลของเรา</div>
@@ -804,7 +849,7 @@
       const old = S.txs.find((x) => x.id === t.id);
       if (old) t.settled = old.settled && JSON.stringify([old.amount, old.myShare, old.splitMode, old.payer]) === JSON.stringify([t.amount, t.myShare, t.splitMode, t.payer]);
     }
-    learnFrom(t);
+    learnFrom(t, D.ocrMemo);
     await DB.putTx(t);
     const i = S.txs.findIndex((x) => x.id === t.id);
     if (i >= 0) S.txs[i] = t; else S.txs.push(t);
@@ -1025,7 +1070,7 @@
         break;
       case 'resetLearn':
         if (await ask('ล้างสิ่งที่แอพจำไว้?', 'แอพจะลืมว่าโน้ตไหนเป็นหมวดอะไร (รายการที่บันทึกไว้ไม่หาย)', 'ล้าง', true)) {
-          S.settings.learn = { memo: {}, party: {} }; await saveSettings(); render();
+          S.settings.learn = { memo: {}, party: {}, fix: {} }; await saveSettings(); render();
         }
         break;
       case 'export': exportData(); break;
@@ -1085,7 +1130,7 @@
   async function boot() {
     await DB.open();
     S.settings = Object.assign(defaultSettings(), (await DB.get('settings')) || {});
-    S.settings.learn = Object.assign({ memo: {}, party: {} }, S.settings.learn || {});
+    S.settings.learn = Object.assign({ memo: {}, party: {}, fix: {} }, S.settings.learn || {});
     S.txs = await DB.allTx();
     render();
     if (!S.settings.onboarded) openOnboarding();
