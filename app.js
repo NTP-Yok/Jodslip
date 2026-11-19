@@ -1,7 +1,7 @@
 /* จดสลิป — main app */
 (function () {
   'use strict';
-  const APP_VERSION = '0.1.6';
+  const APP_VERSION = '0.1.7';
   const SCHEMA = 2; // bump when the stored data shape changes; see migrate()
   const $ = (s, el = document) => el.querySelector(s);
   const app = $('#app');
@@ -68,7 +68,7 @@
     ['health', ['ร้านยา', 'ค่ายา', 'ซื้อยา', 'หมอ', 'คลินิก', 'โรงพยาบาล', 'ทำฟัน', 'ฟิตเนส', 'gym', 'วิตามิน']],
     ['fun', ['ดูหนัง', 'โรงหนัง', 'major', 'sf ', 'เกม', 'game', 'steam', 'คอนเสิร์ต', 'คาราโอเกะ', 'บัตรคอน']],
     ['gift', ['ของขวัญแม่', 'ของขวัญพ่อ', 'ของขวัญวันแม่', 'ของขวัญวันพ่อ', 'วันเกิดแม่', 'วันเกิดพ่อ', 'ให้พ่อ', 'ให้แม่', 'ส่งพ่อ', 'ส่งแม่', 'ส่งเงินบ้าน', 'ส่งบ้าน', 'เงินพ่อ', 'เงินแม่', 'ค่าขนมพ่อ', 'ค่าขนมแม่']],
-    ['shop', ['shopee', 'lazada', 'tiktok', 'เสื้อ', 'กางเกง', 'รองเท้า', 'กระเป๋า', 'ขาตั้ง', 'กล้อง', 'หูฟัง', 'สายชาร์จ', 'uniqlo', 'ไอที']],
+    ['shop', ['แต่งหน้า', 'เครื่องสำอาง', 'สกินแคร์', 'shopee', 'lazada', 'tiktok', 'เสื้อ', 'กางเกง', 'รองเท้า', 'กระเป๋า', 'ขาตั้ง', 'กล้อง', 'หูฟัง', 'สายชาร์จ', 'uniqlo', 'ไอที']],
     ['home', ['หม้อ', 'กระทะ', 'ของใช้', 'สบู่', 'ยาสีฟัน', 'ผงซักฟอก', 'ซักผ้า', 'ทิชชู่', 'แชมพู', 'lotus', 'โลตัส', 'bigc', 'บิ๊กซี', 'makro', 'แม็คโคร', 'tops', 'ท็อปส์', 'watsons', 'boots']],
     ['food', ['ข้าว', 'กับข้าว', 'ก๋วยเตี๋ยว', 'บัวลอย', 'ขนม', 'ชานม', 'ชาเย็น', 'ชาไทย', 'กาแฟ', 'cafe', 'coffee', 'ส้มตำ', 'หมูกระทะ', 'ชาบู', 'ปิ้งย่าง', 'บุฟเฟ่ต์', 'หมู', 'ไก่', 'ไข่', 'ผลไม้', 'มื้อ', 'อาหาร', 'ไอติม', 'ไอศกรีม', 'เครป', 'ขนมปัง', 'น้ำปั่น', 'นม', 'starbucks', 'kfc', 'mcdonald', 'mk', '7-11', '711', 'เซเว่น', 'lineman', 'foodpanda', 'grabfood', 'robinhood', 'ข้าวมัน', 'ราดหน้า', 'โจ๊ก', 'สุกี้', 'หมาล่า', 'ปลา', 'กุ้ง', 'ยำ', 'ลูกชิ้น', 'โรตี', 'ไส้กรอก', 'ไส้หมู', 'คอหมู', 'แหนม', 'แมลง', 'ทอด', 'ย่าง', 'ปิ้ง', 'ผัด', 'แกง', 'ต้ม', 'เลม่อน', 'มะนาว', 'น้ำผึ้ง', 'น้ำปั่น', 'น้ำส้ม', 'โกโก้', 'อี้จา', 'ชา', 'น้ำ']],
   ];
@@ -422,6 +422,11 @@
       await w.setParameters({ tessedit_pageseg_mode: '6' });
       const t2 = (r2.data.text || '').trim();
       if (!t2 || (r2.data.confidence || 0) < (line.confidence || 0)) return text;
+      // never trade a note for just its label: keep the re-read only if it still has the note text
+      const valOf = (x) => (x || '').replace(/\s+/g, '').replace(/^.*?(บันทึกช่วยจ[ำา]|ช่วยจ[ำา]|บันทึก)[:：]?/, '');
+      const v1 = line === lines[i] ? valOf(line.text) : (line.text || '').replace(/\s+/g, '');
+      const v2 = line === lines[i] ? valOf(t2) : t2.replace(/\s+/g, '');
+      if (!v2 || (v1 && v2.length < v1.length * 0.5)) return text;
       const all = text.split('\n');
       const at = all.findIndex((l) => l.trim() === (line.text || '').trim());
       if (at < 0) return text;

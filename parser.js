@@ -179,6 +179,15 @@
     return letters >= 2 && letters / c.length > 0.35;
   }
 
+  // a masked account / biller number line: "xxx-x-x9410-x", "XXX XXX 6592", "x-7636", "(099400004196902)"
+  function isAcctLine(l) {
+    const c = compact(l);
+    if (RE_NOISE_LINE.test(c)) return false;
+    if (/(ม\.ค\.|ก\.พ\.|มี\.ค\.|เม\.ย\.|พ\.ค\.|มิ\.ย\.|ก\.ค\.|ส\.ค\.|ก\.ย\.|ต\.ค\.|พ\.ย\.|ธ\.ค\.)/.test(l)) return false;
+    return /^[xX×*]{2,}[\dxX×*\-–]*\d/.test(c) || /^[xX×*][-–]?\d{3,}/.test(c) || /^\d{3}-\d/.test(c) || /^\(?\d{10,}\)?$/.test(c) || /^\d{1,3}[xX×*]{2,}/.test(c);
+  }
+  function acctDigits(l) { const d = compact(l).replace(/\D/g, ''); return d.length >= 3 ? d.slice(-4) : null; }
+
   function afterLabel(line, labelRe) {
     const m = labelRe.exec(line);
     if (!m) return '';
@@ -258,9 +267,15 @@
 
     // ---- memo
     const reMemo = /บันทึกช่วยจ[ำา]|บันทึก|ช่วยจ[ำา]|memo|note/i;
-    const idxMemo = lines.findIndex((l) => reMemo.test(l));
+    const skel = (x) => compact(x).replace(/[\u0E30-\u0E3A\u0E40-\u0E4E]/g, '');
+    let idxMemo = lines.findIndex((l) => reMemo.test(l));
+    let fuzzyMemo = false;
+    if (idxMemo < 0) { idxMemo = lines.findIndex((l) => /^.{0,3}(บนทก|ชวยจ)/.test(skel(l))); fuzzyMemo = idxMemo >= 0; }
     if (idxMemo >= 0) {
-      let v = afterLabel(lines[idxMemo], reMemo);
+      let v = fuzzyMemo
+        ? (lines[idxMemo].includes(':') ? lines[idxMemo].split(/[:：]/).slice(1).join(':') : lines[idxMemo].replace(/^\S*?(จ[ำาํ]*า?|ก)\s+/, ''))
+        : afterLabel(lines[idxMemo], reMemo);
+      if (fuzzyMemo && v === lines[idxMemo]) v = '';
       if (!v && idxMemo + 1 < lines.length) v = lines[idxMemo + 1];
       v = (v || '').replace(/^[:：\s]+/, '').trim();
       if (v && !/^(ผู้รับเงิน|สแกน)/.test(v)) { r.memo = v; r.memoFound = true; }
@@ -286,7 +301,34 @@
       return null;
     };
     let sIdx = -1, rIdx = -1;
-    if (idxFrom >= 0 || idxTo >= 0) {
+    // Every slip prints, for each side: name → bank → account. Anchoring on the two account lines
+    // finds sender/receiver even when OCR misses the small "จาก"/"ไปยัง" labels or adds icon noise.
+    const stopAt = idxAmt >= 0 ? idxAmt : lines.length;
+    const anchors = [];
+    for (let k = 0; k < stopAt; k++) if (isAcctLine(lines[k])) anchors.push(k);
+    const cand = (k) => {
+      if (k < 0 || k >= lines.length) return null;
+      let c = lines[k];
+      if (/^(จาก|ไปยัง)/.test(compact(c))) c = afterLabel(c, /^(จาก|ไปยัง)\s*/);
+      if (!c || !isContentLine(c)) return null;
+      // a misread "จาก"/"ไปยัง" label is short and has no title; real names are longer
+      if (compact(c).length <= 5 && !RE_TITLE_ANY.test(c)) return null;
+      return c;
+    };
+    if (anchors.length >= 2) {
+      const [a0, a1] = anchors;
+      for (let k = a0 - 1; k >= Math.max(0, a0 - 3); k--) { const c = cand(k); if (c) { r.sender = cleanName(c); sIdx = k; break; } }
+      for (let k = a0 + 1; k < a1; k++) {
+        const c = cand(k);
+        if (!c) continue;
+        let rv = c;
+        const nx = k + 1 < a1 && isContentLine(lines[k + 1]) ? lines[k + 1] : null; // wrapped tail can be short ("ทอด)")
+        if (nx && k + 1 < a1 && lines[k + 1].length <= 24 && !cand(k + 2)) rv += (/[\u0E00-\u0E7F]$/.test(rv) && /^[\u0E00-\u0E7F]/.test(nx) ? '' : ' ') + nx;
+        r.receiver = cleanName(rv); rIdx = k; break;
+      }
+      r.senderAcct = acctDigits(lines[a0]); r.receiverAcct = acctDigits(lines[a1]);
+    }
+    if (r.sender && r.receiver) { /* done */ } else if (idxFrom >= 0 || idxTo >= 0) {
       if (idxFrom >= 0) {
         const same = afterLabel(lines[idxFrom], /^จาก/);
         if (same && isContentLine(same)) { r.sender = cleanName(same); sIdx = idxFrom; }
@@ -305,7 +347,7 @@
       const ci = [];
       for (let k = 0; k < stop; k++) if (isContentLine(lines[k])) ci.push(k);
       // prefer lines with a personal title for the sender
-      const ti = ci.findIndex((k) => RE_TITLE.test(lines[k]));
+      const ti = ci.findIndex((k) => { const t = RE_TITLE_ANY.exec(lines[k]); return t && t.index <= 6; });
       const start = ti >= 0 ? ti : 0;
       r.sender = cleanName(ci[start] != null ? lines[ci[start]] : '');
       sIdx = ci[start] != null ? ci[start] : -1;
