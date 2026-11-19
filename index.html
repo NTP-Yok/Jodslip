@@ -5,8 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>จดสลิป</title>
 <meta name="description" content="แอพจดรายรับรายจ่ายจากสลิปโอนเงิน ใช้งานออฟไลน์ ข้อมูลอยู่ในเครื่อง">
-<meta name="theme-color" content="#FFF7F8" media="(prefers-color-scheme: light)">
-<meta name="theme-color" content="#1D191A" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#FDB5C1">
+<script>(function(){var d=document.documentElement,t="pink",f="looped";try{t=localStorage.getItem("jodslip-theme")||t;f=localStorage.getItem("jodslip-font")||f}catch(e){}d.dataset.theme=t;d.dataset.font=f})()</script>
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
@@ -16,40 +16,72 @@
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600;700&family=IBM+Plex+Sans+Thai+Looped:wght@400;500;600;700&family=Sarabun:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
 :root{
-  /* Pink Cherub #FDB5C1 + Butterfly #CBDEA6, with deeper shades for readable text */
-  --pink:#FDB5C1; --pink-soft:#FFE4EA; --butterfly:#CBDEA6;
-  --bg:#FFF7F8; --surface:#FFFFFF; --surface-2:#FBEEF1; --line:#F3DEE3;
-  --ink:#2F2A2C; --ink-2:#6E6266; --muted:#7E7175;
-  --primary:#4F7A35; --primary-ink:#FFFFFF; --primary-soft:#EEF5E0;
-  --expense:#C2456A; --expense-soft:#FFE4EA;
-  --income:#3E6B2A; --income-soft:#EAF3DA;
-  --neutral-soft:#F4ECEE;
-  --warn:#94600F; --warn-soft:#FDF1DB; --warn-line:#EBCB8E;
-  --bar:#CBDEA6; --bar-strong:#86AD57;
-  --hero:linear-gradient(135deg,#FFE1E8 0%,#FFF0F3 60%,#F3F8EA 100%);
   --shadow:0 1px 2px rgba(120,60,75,.06),0 4px 16px rgba(120,60,75,.07);
   --radius:18px; --radius-sm:12px;
   --nav-h:64px;
-  --font:'IBM Plex Sans Thai','Noto Sans Thai','Sukhumvit Set','Thonburi','Leelawadee UI',system-ui,sans-serif;
+  --font:'IBM Plex Sans Thai Looped','Sarabun','Thonburi','Leelawadee UI',system-ui,sans-serif;
+  --warn:#94600F; --warn-soft:#FDF1DB; --warn-line:#EBCB8E;
   color-scheme:light;
 }
+/* ---- Fonts (browsers only download the one in use) ---- */
+html[data-font="looped"]{--font:'IBM Plex Sans Thai Looped','Sarabun','Thonburi','Leelawadee UI',system-ui,sans-serif}
+html[data-font="sarabun"]{--font:'Sarabun','IBM Plex Sans Thai Looped','Thonburi','Leelawadee UI',system-ui,sans-serif}
+html[data-font="modern"]{--font:'IBM Plex Sans Thai','Noto Sans Thai','Sukhumvit Set','Leelawadee UI',system-ui,sans-serif}
+/* ---- Theme: ชมพูเขียว (Pink Cherub #FDB5C1 + Butterfly #CBDEA6) — the default ---- */
+:root, html[data-theme="pink"]{
+  --bg:#FFEEF2; --surface:#FFFFFF; --surface-2:#FFE3E9; --line:#F8D3DB; --nav-bg:#FFF6F8; --icon-bg:#FFE3E9;
+  --ink:#2F2A2C; --ink-2:#6A5A5F; --muted:#7A6A6F;
+  --primary:#4F7A35; --primary-ink:#FFFFFF; --primary-soft:#E6F0D3;
+  --expense:#B83A60; --expense-soft:#FFD9E1;
+  --income:#3E6B2A; --income-soft:#E2EECD;
+  --neutral-soft:#FBE7EB;
+  --bar:#CBDEA6; --bar-strong:#86AD57;
+  --hero:linear-gradient(135deg,#FDB5C1 0%,#FFCAD4 55%,#E2EFC9 100%); --hero-label:#4F3B42; --hero-track:rgba(255,255,255,.6);
+  --veil:255,255,255; --pill-bal:rgba(255,255,255,.82); --pill-in:rgba(226,238,205,.9);
+  --fab-shadow:rgba(79,122,53,.32); --theme-color:#FDB5C1;
+}
+/* ---- Theme: ปกติ (the original sage & cream) ---- */
+html[data-theme="classic"]{
+  --bg:#F5F3EE; --surface:#FFFFFF; --surface-2:#EFECE5; --line:#E4E0D7; --nav-bg:#FFFFFF; --icon-bg:#EFECE5;
+  --ink:#27302C; --ink-2:#56625C; --muted:#727D78;
+  --primary:#3F7A64; --primary-ink:#FFFFFF; --primary-soft:#E2EEE8;
+  --expense:#B0563F; --expense-soft:#F7E7E1;
+  --income:#2C7A5E; --income-soft:#DDF0E7;
+  --neutral-soft:#ECEAE4;
+  --bar:#7FAE99; --bar-strong:#3F7A64;
+  --hero:#FFFFFF; --hero-label:#56625C; --hero-track:#EFECE5;
+  --veil:255,255,255; --pill-bal:rgba(255,255,255,.82); --pill-in:rgba(221,240,231,.9);
+  --shadow:0 1px 2px rgba(39,48,44,.06),0 4px 16px rgba(39,48,44,.06);
+  --fab-shadow:rgba(63,122,100,.35); --theme-color:#F5F3EE;
+}
 @media (prefers-color-scheme: dark){
-  :root{
-    --pink:#E8A3B0; --pink-soft:#3A272D; --butterfly:#B9D98F;
-    --bg:#1D191A; --surface:#272224; --surface-2:#312B2D; --line:#3C3436;
-    --ink:#F2EAEC; --ink-2:#C7BABE; --muted:#A3969A;
+  :root{ color-scheme:dark; --shadow:0 1px 2px rgba(0,0,0,.3),0 4px 16px rgba(0,0,0,.25); --warn:#F0C27A; --warn-soft:#3A2F1C; --warn-line:#6B5528; }
+  :root, html[data-theme="pink"]{
+    --bg:#1F1719; --surface:#2A2023; --surface-2:#35282C; --line:#44343A; --nav-bg:#241B1E; --icon-bg:#3A2A2F;
+    --ink:#F7ECEF; --ink-2:#D4C2C7; --muted:#AE9CA2;
     --primary:#B9D98F; --primary-ink:#1E2A12; --primary-soft:#2F3A24;
-    --expense:#F49AB0; --expense-soft:#43262E;
-    --income:#B9D98F; --income-soft:#2C3622;
-    --neutral-soft:#2E2829;
-    --warn:#F0C27A; --warn-soft:#3A2F1C; --warn-line:#6B5528;
+    --expense:#F7A3B8; --expense-soft:#4A2731;
+    --income:#B9D98F; --income-soft:#2E3A24;
+    --neutral-soft:#33272B;
     --bar:#5E7A43; --bar-strong:#B9D98F;
-    --hero:linear-gradient(135deg,#3A272D 0%,#2C2427 60%,#2A3123 100%);
-    --shadow:0 1px 2px rgba(0,0,0,.3),0 4px 16px rgba(0,0,0,.25);
-    color-scheme:dark;
+    --hero:linear-gradient(135deg,#7A3A4E 0%,#56303C 55%,#3C4A31 100%); --hero-label:#F3DDE3; --hero-track:rgba(0,0,0,.25);
+    --veil:20,12,15; --pill-bal:rgba(42,32,35,.8); --pill-in:rgba(46,58,36,.85);
+    --fab-shadow:rgba(0,0,0,.4); --theme-color:#1F1719;
+  }
+  html[data-theme="classic"]{
+    --bg:#161A19; --surface:#1F2523; --surface-2:#28302D; --line:#323B37; --nav-bg:#1F2523; --icon-bg:#28302D;
+    --ink:#E7ECE9; --ink-2:#B2BDB7; --muted:#95A09A;
+    --primary:#7DBFA4; --primary-ink:#0F1F18; --primary-soft:#21372E;
+    --expense:#E8957F; --expense-soft:#3A2520;
+    --income:#79C9A5; --income-soft:#1D372B;
+    --neutral-soft:#2A302E;
+    --bar:#4E7C68; --bar-strong:#7DBFA4;
+    --hero:#1F2523; --hero-label:#B2BDB7; --hero-track:#28302D;
+    --veil:15,20,18; --pill-bal:rgba(31,37,35,.8); --pill-in:rgba(29,55,43,.85);
+    --fab-shadow:rgba(0,0,0,.4); --theme-color:#161A19;
   }
 }
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -71,8 +103,13 @@ button{cursor:pointer}
 
 /* cards */
 .card{background:var(--surface);border-radius:var(--radius);padding:18px;box-shadow:var(--shadow);margin-bottom:14px}
-.hero{background:var(--hero)}
-.hero .label{color:var(--ink-2);font-size:14px}
+.hero{background:var(--hero);position:relative;overflow:hidden;isolation:isolate}
+.hero .label{color:var(--hero-label);font-size:14px;font-weight:500}
+.hero-bg{position:absolute;inset:-28px;z-index:-2;overflow:hidden;pointer-events:none}
+.hero-bg img{width:100%;height:100%;object-fit:cover;display:block}
+.hero-veil{position:absolute;inset:0;z-index:-1;pointer-events:none}
+.hero.has-img .pill.bal{background:var(--pill-bal)} .hero.has-img .pill.in{background:var(--pill-in)}
+.hero.has-img .budget .meta{color:var(--hero-label)}
 .hero .big{font-size:36px;font-weight:700;letter-spacing:-.5px;line-height:1.15;margin:2px 0 12px}
 .hero .row{display:flex;gap:10px}
 .pill{flex:1;border-radius:var(--radius-sm);padding:10px 12px}
@@ -81,10 +118,10 @@ button{cursor:pointer}
 .pill.in{background:var(--income-soft)} .pill.in b{color:var(--income)}
 .pill.bal{background:var(--surface)}
 .budget{margin-top:14px}
-.budget .bar{height:10px;border-radius:99px;background:var(--surface-2);overflow:hidden}
+.budget .bar{height:10px;border-radius:99px;background:var(--hero-track);overflow:hidden}
 .budget .bar i{display:block;height:100%;border-radius:99px;background:var(--primary)}
 .budget .bar i.over{background:var(--expense)}
-.budget .meta{display:flex;justify-content:space-between;font-size:13px;color:var(--ink-2);margin-top:6px}
+.budget .meta{display:flex;justify-content:space-between;font-size:13px;color:var(--hero-label);margin-top:6px}
 
 .chip-row{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap}
 .link-chip{display:flex;align-items:center;gap:8px;border:0;background:var(--surface);box-shadow:var(--shadow);border-radius:999px;padding:8px 14px;font-size:14px;font-weight:500}
@@ -97,7 +134,7 @@ button{cursor:pointer}
 .item{display:flex;align-items:center;gap:12px;padding:12px 14px;border:0;background:transparent;width:100%;text-align:left}
 .item+.item{border-top:1px solid var(--line)}
 .item:active{background:var(--surface-2)}
-.ico{width:42px;height:42px;border-radius:13px;background:var(--surface-2);display:grid;place-items:center;font-size:21px;flex:none}
+.ico{width:42px;height:42px;border-radius:13px;background:var(--icon-bg);display:grid;place-items:center;font-size:21px;flex:none}
 .item .mid{flex:1;min-width:0}
 .item .t{font-weight:600;display:flex;align-items:center;gap:4px;min-width:0}
 .item .t .tt{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
@@ -124,12 +161,12 @@ button{cursor:pointer}
 .btn-row .btn{flex:1}
 
 /* nav */
-nav.tabs{position:fixed;left:0;right:0;bottom:0;background:var(--surface);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom);z-index:20}
+nav.tabs{position:fixed;left:0;right:0;bottom:0;background:var(--nav-bg);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom);z-index:20}
 nav.tabs .in{max-width:540px;margin:0 auto;height:var(--nav-h);display:grid;grid-template-columns:repeat(5,1fr);align-items:center}
 nav.tabs button{border:0;background:transparent;display:flex;flex-direction:column;align-items:center;gap:2px;font-size:11.5px;color:var(--muted);padding:6px 0}
 nav.tabs button.on{color:var(--primary);font-weight:600}
 nav.tabs svg{width:24px;height:24px}
-nav.tabs .fab{width:56px;height:56px;border-radius:18px;background:var(--primary);color:var(--primary-ink);margin:-26px auto 0;box-shadow:0 6px 18px rgba(79,122,53,.32);justify-content:center}
+nav.tabs .fab{width:56px;height:56px;border-radius:18px;background:var(--primary);color:var(--primary-ink);margin:-26px auto 0;box-shadow:0 6px 18px var(--fab-shadow);justify-content:center}
 nav.tabs .fab svg{width:28px;height:28px}
 
 /* sheets */
@@ -227,6 +264,18 @@ button.cat-row:active{background:var(--surface-2)}
 .guide ol{padding-left:22px;margin:0}
 .guide li{margin-bottom:8px}
 .guide .card p{margin:0 0 8px}
+.theme-pick{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px}
+.theme-pick button{border:2px solid var(--line);background:var(--surface);border-radius:16px;padding:10px;text-align:left;font-weight:600}
+.theme-pick button.on{border-color:var(--primary)}
+.theme-pick .sw{display:flex;height:54px;border-radius:10px;overflow:hidden;margin-bottom:8px}
+.theme-pick .sw i{flex:1}
+.range{margin-bottom:12px}
+.font-pick button{display:block;width:100%;border:2px solid var(--line);background:var(--surface);border-radius:14px;padding:12px 14px;text-align:left;margin-bottom:10px}
+.font-pick button.on{border-color:var(--primary)}
+.font-pick b{display:block;font-size:19px;font-weight:600}
+.font-pick small{color:var(--muted)}
+.range label{display:flex;justify-content:space-between;font-size:13.5px;color:var(--ink-2);margin:0 2px 4px}
+.range input{width:100%;accent-color:var(--primary)}
 .kbd{display:inline-block;background:var(--surface-2);border-radius:7px;padding:0 7px;font-weight:600;font-size:14px}
 
 .toast{position:fixed;left:50%;bottom:calc(var(--nav-h) + env(safe-area-inset-bottom) + 18px);transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:12px;font-size:14px;z-index:60;max-width:90vw;text-align:center;animation:fade .2s}
@@ -251,6 +300,7 @@ button.cat-row:active{background:var(--surface-2)}
 </nav>
 <div id="layer"></div>
 <input type="file" id="pick" accept="image/*" multiple class="hide">
+<input type="file" id="heroPick" accept="image/*" class="hide">
 <input type="file" id="restore" accept="application/json,.json" class="hide">
 <script src="parser.js"></script>
 <script src="app.js"></script>

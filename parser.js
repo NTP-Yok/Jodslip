@@ -159,6 +159,7 @@
     if (t && t.index > 0 && t.index <= 6) n = n.slice(t.index); // icon noise in front of the title
     n = n.replace(/^[^A-Za-z฀-๿(]+/, '').replace(/[^A-Za-z฀-๿.)]+$/, '').trim();
     if (/^\(/.test(n) && !/\)/.test(n)) n = n.replace(/^\(\S{0,3}\s*/, '');
+    n = n.replace(/^\(?\s*[5S][0OoCc]{1,2}[8B](?=\s)/, 'SCB'); // "SCB มณี SHOP" often comes out as "( 50o8 มณี SHOP"
     // put back a space after a title that OCR glued on
     n = n.replace(RE_TITLE, (t) => t.trim() + ' ');
     return n.trim();

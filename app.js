@@ -1,7 +1,7 @@
 /* จดสลิป — main app */
 (function () {
   'use strict';
-  const APP_VERSION = '0.1.5';
+  const APP_VERSION = '0.1.6';
   const SCHEMA = 2; // bump when the stored data shape changes; see migrate()
   const $ = (s, el = document) => el.querySelector(s);
   const app = $('#app');
@@ -94,6 +94,7 @@
       onboarded: false, myNames: '', partnerName: '', budget: 0,
       customCats: [], learn: { memo: {}, party: {}, fix: {} }, ocrReady: false, lastSettleAt: null,
       myAccounts: [], lastBackupAt: null, schema: SCHEMA,
+      theme: 'pink', font: 'looped', heroStyle: { zoom: 1, x: 50, y: 50, blur: 6, veil: 35 },
     };
   }
   const cats = () => DEFAULT_CATS.concat(S.settings.customCats || []);
@@ -593,7 +594,7 @@
     const since = S.settings.lastBackupAt ? Math.floor((Date.now() - new Date(S.settings.lastBackupAt)) / 864e5) : null;
     if (realCount >= 10 && (since == null || since >= 30)) chips.push(`<button class="link-chip warn" data-action="export">💾 ${since == null ? 'ยังไม่เคยสำรองข้อมูล' : `ไม่ได้สำรองข้อมูลมา ${since} วัน`} · สำรองเลย</button>`);
     return `${header('จดสลิป', true)}
-      <div class="card hero">
+      <div class="card hero${S.heroImg ? ' has-img' : ''}">${heroBg(S.heroImg, S.settings.heroStyle)}
         <div class="label">ใช้ไปเดือนนี้</div>
         <div class="big num">${money(s.expense)}</div>
         <div class="row">
@@ -605,6 +606,89 @@
       ${list.length ? txList(list) : `<div class="card empty"><div class="em">🧾</div><h3>ยังไม่มีรายการเดือนนี้</h3>
         <p>กดปุ่ม <b>+</b> ด้านล่าง แล้วเลือกสลิปจากอัลบั้มได้ทีละหลายใบ</p>
         <button class="btn primary" data-action="add">เพิ่มสลิป</button></div>`}`;
+  }
+
+  // blurred photo behind the "ใช้ไปเดือนนี้" card; a translucent veil keeps the numbers readable
+  function heroBg(img, st) {
+    if (!img) return '';
+    st = Object.assign({ zoom: 1, x: 50, y: 50, blur: 6, veil: 35 }, st || {});
+    const pos = `${st.x}% ${st.y}%`;
+    return `<div class="hero-bg"><img src="${img}" alt="" style="object-position:${pos};transform-origin:${pos};transform:scale(${st.zoom});filter:blur(${st.blur}px)"></div>
+      <div class="hero-veil" style="background:rgba(var(--veil),${st.veil / 100})"></div>`;
+  }
+
+  /* ---------- appearance: theme, font ---------- */
+  const THEMES = [
+    { id: 'pink', n: 'ชมพูเขียว', sw: ['#FDB5C1', '#FFE3E9', '#CBDEA6', '#4F7A35'] },
+    { id: 'classic', n: 'ปกติ (เขียวครีม)', sw: ['#F5F3EE', '#FFFFFF', '#7FAE99', '#3F7A64'] },
+  ];
+  const FONTS = [
+    { id: 'looped', n: 'มีหัว อ่านง่าย', f: "'IBM Plex Sans Thai Looped'", d: 'IBM Plex Sans Thai Looped' },
+    { id: 'sarabun', n: 'ทางการ', f: "'Sarabun'", d: 'สารบรรณ (Sarabun)' },
+    { id: 'modern', n: 'ไม่มีหัว ทันสมัย', f: "'IBM Plex Sans Thai'", d: 'IBM Plex Sans Thai (แบบเดิม)' },
+  ];
+  function applyAppearance() {
+    const d = document.documentElement;
+    d.dataset.theme = S.settings.theme || 'pink';
+    d.dataset.font = S.settings.font || 'looped';
+    try { localStorage.setItem('jodslip-theme', d.dataset.theme); localStorage.setItem('jodslip-font', d.dataset.font); } catch (e) { /* ignore */ }
+    const tc = getComputedStyle(d).getPropertyValue('--theme-color').trim();
+    const m = document.querySelector('meta[name="theme-color"]'); if (m && tc) m.setAttribute('content', tc);
+  }
+  function openTheme() {
+    openLayer(`<div class="grab"></div><h2>ธีม <button class="x" data-action="close">✕</button></h2>
+      <div class="theme-pick">${THEMES.map((t) => `<button data-action="setTheme" data-v="${t.id}" class="${S.settings.theme === t.id ? 'on' : ''}">
+        <div class="sw">${t.sw.map((c) => `<i style="background:${c}"></i>`).join('')}</div>${esc(t.n)}</button>`).join('')}</div>
+      <p class="hint">โหมดมืดเปลี่ยนตามการตั้งค่าของมือถือ ทั้งสองธีมมีแบบมืดให้</p>`);
+  }
+  function openFont() {
+    openLayer(`<div class="grab"></div><h2>ฟอนต์ <button class="x" data-action="close">✕</button></h2>
+      <div class="font-pick">${FONTS.map((f) => `<button data-action="setFont" data-v="${f.id}" class="${S.settings.font === f.id ? 'on' : ''}" style="font-family:${f.f},sans-serif">
+        <b>ใช้ไปเดือนนี้ ฿1,234.50</b><small>${esc(f.n)} · ${esc(f.d)}</small></button>`).join('')}</div>
+      <p class="hint">ต้องต่อเน็ตครั้งแรกเพื่อโหลดฟอนต์ หลังจากนั้นใช้ออฟไลน์ได้</p>`);
+  }
+
+  /* ---------- hero photo editor ---------- */
+  let HE = null; // { img, st } being edited
+  function openHeroEditor() {
+    HE = { img: S.heroImg || null, st: Object.assign({ zoom: 1, x: 50, y: 50, blur: 6, veil: 35 }, S.settings.heroStyle || {}) };
+    renderHeroEditor();
+  }
+  function heroPreview() {
+    const s0 = sumMonth(S.month);
+    return `<div class="card hero${HE.img ? ' has-img' : ''}" id="hePrev" style="margin-bottom:16px">${heroBg(HE.img, HE.st)}
+      <div class="label">ใช้ไปเดือนนี้</div><div class="big num">${money(s0.expense)}</div>
+      <div class="row"><div class="pill in"><small>รายรับ</small><b class="num">${money(s0.income)}</b></div>
+      <div class="pill bal"><small>คงเหลือ</small><b class="num">${money(s0.income - s0.expense)}</b></div></div></div>`;
+  }
+  function renderHeroEditor() {
+    const st = HE.st;
+    const sl = (k, label, min, max, step, unit) => `<div class="range"><label><span>${label}</span><span class="num" id="hv-${k}">${st[k]}${unit}</span></label>
+      <input type="range" data-hs="${k}" min="${min}" max="${max}" step="${step}" value="${st[k]}" ${HE.img ? '' : 'disabled'}></div>`;
+    openLayer(`<div class="grab"></div><h2>รูปพื้นหลังการ์ด <button class="x" data-action="close">✕</button></h2>
+      <div id="heWrap">${heroPreview()}</div>
+      <div class="btn-row" style="margin-bottom:16px"><button class="btn" data-action="heroPick">${HE.img ? 'เปลี่ยนรูป' : 'เลือกรูป'}</button>${HE.img ? '<button class="btn danger" data-action="heroRemove">เอารูปออก</button>' : ''}</div>
+      ${sl('zoom', 'ขนาดรูป', 1, 3, 0.05, '×')}
+      ${sl('x', 'เลื่อนซ้าย–ขวา', 0, 100, 1, '%')}
+      ${sl('y', 'เลื่อนขึ้น–ลง', 0, 100, 1, '%')}
+      ${sl('blur', 'ความฟุ้ง', 0, 24, 1, 'px')}
+      ${sl('veil', 'ทับสีจาง (ให้อ่านตัวเลขง่าย)', 0, 85, 1, '%')}
+      <button class="btn primary block" data-action="heroSave">บันทึก</button>`, 'full');
+    layer.querySelectorAll('[data-hs]').forEach((r) => r.addEventListener('input', () => {
+      HE.st[r.dataset.hs] = +r.value;
+      $('#hv-' + r.dataset.hs).textContent = r.value + ({ zoom: '×', blur: 'px' }[r.dataset.hs] || '%');
+      $('#heWrap').innerHTML = heroPreview();
+    }));
+  }
+  async function loadHeroImage(file) {
+    let src;
+    try { src = await createImageBitmap(file); } catch (e) {
+      src = await new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = URL.createObjectURL(file); });
+    }
+    const k = Math.min(1, 1400 / Math.max(src.width, src.height));
+    const c = document.createElement('canvas'); c.width = Math.round(src.width * k); c.height = Math.round(src.height * k);
+    c.getContext('2d').drawImage(src, 0, 0, c.width, c.height);
+    return c.toDataURL('image/jpeg', 0.82);
   }
 
   function viewSummary() {
@@ -747,6 +831,12 @@
     const learnCount = Object.keys(st.learn.memo).length + Object.keys(st.learn.party).length + Object.keys(st.learn.fix || {}).length;
     const demoCount = S.txs.filter((t) => t.demo).length;
     return `${header('ตั้งค่า', false)}
+      <div class="group-title">หน้าตาแอพ</div>
+      <div class="set-group">
+        <button class="set-row" data-action="theme"><span class="e">🎨</span>ธีม<span class="r">${esc((THEMES.find((t) => t.id === st.theme) || THEMES[0]).n)} ›</span></button>
+        <button class="set-row" data-action="font"><span class="e">🔤</span>ฟอนต์<span class="r">${esc((FONTS.find((f) => f.id === st.font) || FONTS[0]).n)} ›</span></button>
+        <button class="set-row" data-action="heroEdit"><span class="e">🖼️</span>รูปพื้นหลังการ์ด “ใช้ไปเดือนนี้”<span class="r">${S.heroImg ? 'มีรูป' : 'ไม่มี'} ›</span></button>
+      </div>
       <div class="group-title">ข้อมูลของเรา</div>
       <div class="set-group">
         <button class="set-row" data-action="editNames"><span class="e">🙋</span>ชื่อเรา (ตามบัญชีธนาคาร)<span class="r">${esc(st.myNames || 'ยังไม่ได้ตั้ง')}</span></button>
@@ -1069,7 +1159,7 @@
 
   /* ================= backup ================= */
   async function exportData() {
-    const data = { app: 'jodslip', version: SCHEMA, appVersion: APP_VERSION, exportedAt: new Date().toISOString(), settings: S.settings, txs: S.txs };
+    const data = { app: 'jodslip', version: SCHEMA, appVersion: APP_VERSION, exportedAt: new Date().toISOString(), settings: S.settings, txs: S.txs, assets: { heroImg: S.heroImg || null } };
     const done = async () => { S.settings.lastBackupAt = new Date().toISOString(); await saveSettings(); render(); };
     const name = `jodslip-backup-${todayISO()}.json`;
     const blob = new Blob([JSON.stringify(data)], { type: 'application/json' });
@@ -1102,6 +1192,13 @@
         S.settings.myAccounts = [...new Set([...(S.settings.myAccounts || []), ...(data.settings.myAccounts || [])])];
         if (!S.settings.myNames && data.settings.myNames) S.settings.myNames = data.settings.myNames;
         if (!S.settings.partnerName && data.settings.partnerName) S.settings.partnerName = data.settings.partnerName;
+        if (!S.settings.budget && data.settings.budget) S.settings.budget = data.settings.budget;
+        // a restore onto a fresh install brings back the look too
+        if (!S.txs.length || n === S.txs.length) {
+          ['theme', 'font', 'heroStyle'].forEach((k) => { if (data.settings[k]) S.settings[k] = data.settings[k]; });
+          applyAppearance();
+        }
+        if (!S.heroImg && data.assets && data.assets.heroImg) { S.heroImg = data.assets.heroImg; await DB.set('heroImg', S.heroImg); }
         const ids = new Set((S.settings.customCats || []).map((c) => c.id));
         S.settings.customCats = (S.settings.customCats || []).concat((data.settings.customCats || []).filter((c) => !ids.has(c.id)));
         await saveSettings();
@@ -1141,6 +1238,17 @@
       case 'mnext': S.month = addMonths(S.month, 1); render(); break;
       case 'edit': openEdit(el.dataset.id); break;
       case 'bankList': openBankList(el.dataset.bank); break;
+      case 'theme': openTheme(); break;
+      case 'font': openFont(); break;
+      case 'setTheme': S.settings.theme = el.dataset.v; applyAppearance(); await saveSettings(); openTheme(); render(); break;
+      case 'setFont': S.settings.font = el.dataset.v; applyAppearance(); await saveSettings(); openFont(); render(); break;
+      case 'heroEdit': openHeroEditor(); break;
+      case 'heroPick': $('#heroPick').value = ''; $('#heroPick').click(); break;
+      case 'heroRemove': HE.img = null; renderHeroEditor(); break;
+      case 'heroSave':
+        S.heroImg = HE.img; S.settings.heroStyle = HE.st;
+        await DB.set('heroImg', HE.img || null); await saveSettings();
+        closeLayer(); render(); toast('บันทึกแล้ว'); break;
       case 'saveDraft': saveDraft(); break;
       case 'skip':
         S.qi++;
@@ -1239,6 +1347,10 @@
   });
 
   $('#pick').addEventListener('change', (e) => importFiles(e.target.files));
+  $('#heroPick').addEventListener('change', async (e) => {
+    const f = e.target.files[0]; if (!f || !HE) return;
+    try { HE.img = await loadHeroImage(f); renderHeroEditor(); } catch (err) { toast('เปิดรูปนี้ไม่ได้'); }
+  });
   $('#restore').addEventListener('change', (e) => e.target.files[0] && importData(e.target.files[0]));
   window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); S.installEvt = e; if (S.view === 'home' || S.view === 'settings') render(); });
 
@@ -1289,6 +1401,8 @@
     S.settings.learn = Object.assign({ memo: {}, party: {}, fix: {} }, S.settings.learn || {});
     S.txs = await DB.allTx();
     await migrate();
+    S.heroImg = (await DB.get('heroImg')) || null;
+    applyAppearance();
     render();
     if (!S.settings.onboarded) openOnboarding();
     // ask the browser to keep our data even when the phone is low on space
