@@ -1,7 +1,8 @@
 /* จดสลิป — main app */
 (function () {
   'use strict';
-  const APP_VERSION = '0.1.3';
+  const APP_VERSION = '0.1.4';
+  const SCHEMA = 2; // bump when the stored data shape changes; see migrate()
   const $ = (s, el = document) => el.querySelector(s);
   const app = $('#app');
   const layer = $('#layer');
@@ -69,7 +70,7 @@
     ['gift', ['ของขวัญแม่', 'ของขวัญพ่อ', 'ของขวัญวันแม่', 'ของขวัญวันพ่อ', 'วันเกิดแม่', 'วันเกิดพ่อ', 'ให้พ่อ', 'ให้แม่', 'ส่งพ่อ', 'ส่งแม่', 'ส่งเงินบ้าน', 'ส่งบ้าน', 'เงินพ่อ', 'เงินแม่', 'ค่าขนมพ่อ', 'ค่าขนมแม่']],
     ['shop', ['shopee', 'lazada', 'tiktok', 'เสื้อ', 'กางเกง', 'รองเท้า', 'กระเป๋า', 'ขาตั้ง', 'กล้อง', 'หูฟัง', 'สายชาร์จ', 'uniqlo', 'ไอที']],
     ['home', ['หม้อ', 'กระทะ', 'ของใช้', 'สบู่', 'ยาสีฟัน', 'ผงซักฟอก', 'ซักผ้า', 'ทิชชู่', 'แชมพู', 'lotus', 'โลตัส', 'bigc', 'บิ๊กซี', 'makro', 'แม็คโคร', 'tops', 'ท็อปส์', 'watsons', 'boots']],
-    ['food', ['ข้าว', 'กับข้าว', 'ก๋วยเตี๋ยว', 'บัวลอย', 'ขนม', 'ชานม', 'ชาเย็น', 'ชาไทย', 'กาแฟ', 'cafe', 'coffee', 'ส้มตำ', 'หมูกระทะ', 'ชาบู', 'ปิ้งย่าง', 'บุฟเฟ่ต์', 'หมู', 'ไก่', 'ไข่', 'ผลไม้', 'มื้อ', 'อาหาร', 'ไอติม', 'ไอศกรีม', 'เครป', 'ขนมปัง', 'น้ำปั่น', 'นม', 'starbucks', 'kfc', 'mcdonald', 'mk', '7-11', '711', 'เซเว่น', 'lineman', 'foodpanda', 'grabfood', 'robinhood', 'ข้าวมัน', 'ราดหน้า', 'โจ๊ก', 'สุกี้', 'หมาล่า', 'ปลา', 'กุ้ง', 'ยำ', 'ลูกชิ้น', 'โรตี', 'ไส้กรอก', 'ไส้หมู', 'คอหมู', 'แหนม', 'แมลง', 'ทอด', 'ย่าง', 'ปิ้ง', 'ผัด', 'แกง', 'ต้ม', 'เลม่อน', 'มะนาว', 'น้ำผึ้ง', 'น้ำปั่น', 'น้ำส้ม', 'โกโก้', 'ชา', 'น้ำ']],
+    ['food', ['ข้าว', 'กับข้าว', 'ก๋วยเตี๋ยว', 'บัวลอย', 'ขนม', 'ชานม', 'ชาเย็น', 'ชาไทย', 'กาแฟ', 'cafe', 'coffee', 'ส้มตำ', 'หมูกระทะ', 'ชาบู', 'ปิ้งย่าง', 'บุฟเฟ่ต์', 'หมู', 'ไก่', 'ไข่', 'ผลไม้', 'มื้อ', 'อาหาร', 'ไอติม', 'ไอศกรีม', 'เครป', 'ขนมปัง', 'น้ำปั่น', 'นม', 'starbucks', 'kfc', 'mcdonald', 'mk', '7-11', '711', 'เซเว่น', 'lineman', 'foodpanda', 'grabfood', 'robinhood', 'ข้าวมัน', 'ราดหน้า', 'โจ๊ก', 'สุกี้', 'หมาล่า', 'ปลา', 'กุ้ง', 'ยำ', 'ลูกชิ้น', 'โรตี', 'ไส้กรอก', 'ไส้หมู', 'คอหมู', 'แหนม', 'แมลง', 'ทอด', 'ย่าง', 'ปิ้ง', 'ผัด', 'แกง', 'ต้ม', 'เลม่อน', 'มะนาว', 'น้ำผึ้ง', 'น้ำปั่น', 'น้ำส้ม', 'โกโก้', 'อี้จา', 'ชา', 'น้ำ']],
   ];
   const INCOME_KEYWORDS = [
     ['allow', ['เงินเดือน', 'ค่าขนม', 'เงินใช้', 'รายเดือน']],
@@ -92,6 +93,7 @@
     return {
       onboarded: false, myNames: '', partnerName: '', budget: 0,
       customCats: [], learn: { memo: {}, party: {}, fix: {} }, ocrReady: false, lastSettleAt: null,
+      myAccounts: [], lastBackupAt: null, schema: SCHEMA,
     };
   }
   const cats = () => DEFAULT_CATS.concat(S.settings.customCats || []);
@@ -214,8 +216,13 @@
   }
   function draftFromSlip(p, thumb, info) {
     const me = myNameList(), partner = partnerList();
-    const rMe = !!p.receiver && SlipParser.matchesAny(p.receiver, me);
-    const sMe = !!p.sender && SlipParser.matchesAny(p.sender, me);
+    const accts = S.settings.myAccounts || [];
+    // our account's last 4 digits are the most reliable signal (digits OCR far better than Thai names)
+    const sAcct = !!p.senderAcct && accts.includes(p.senderAcct);
+    const rAcct = !!p.receiverAcct && accts.includes(p.receiverAcct);
+    const sName = !!p.sender && SlipParser.matchesAny(p.sender, me);
+    const rName = !!p.receiver && SlipParser.matchesAny(p.receiver, me);
+    const sMe = sAcct || sName, rMe = rAcct || rName;
     // a readable sender that isn't us = the money came from someone else
     const sOther = me.length > 0 && SlipParser.looksLikeName(p.sender) && !sMe;
     let type = 'expense', party = p.receiver, notMine = false;
@@ -231,7 +238,9 @@
       source: 'slip', type, amount: p.amount != null ? String(p.amount) : '', memo, party: party || '',
       date: p.date || todayISO(), time: p.time || '', bank: p.bank, bankName: p.bankName, ref: p.ref,
       dedupeKey: info.dedupeKey, thumb, kind: p.kind, ocrMemo: p.memo || '',
-      notMine, sender: p.sender || '',
+      notMine, sender: p.sender || '', senderAcct: p.senderAcct || null,
+      // accounts to remember as ours once the user saves this slip
+      learnAccts: [sName && p.senderAcct, (type === 'self' || rName) && p.receiverAcct].filter(Boolean),
     });
     d.category = guessCategory(type, memo, party);
     d.splitMode = type === 'expense' ? guessSplit(memo) : 'none';
@@ -267,7 +276,7 @@
         category: d.type === 'expense' || d.type === 'income' ? d.category : null,
         date: d.date || todayISO(), time: d.time || '', payer: d.source === 'manual' ? d.payer : 'me',
         splitMode, myShare, settled: !!d.settled,
-        bank: d.bank || null, bankName: d.bankName || null, ref: d.ref || null, dedupeKey: d.dedupeKey || null,
+        bank: d.bank || null, bankName: (d.bank && d.bank !== 'cash' ? bankName(d.bank) : null) || null, ref: d.ref || null, dedupeKey: d.dedupeKey || null,
         thumb: d.thumb || null, kind: d.kind || null, createdAt: d.createdAt || Date.now(), demo: !!d.demo,
       },
     };
@@ -580,6 +589,9 @@
     if (Math.abs(bal) >= 0.01) chips.push(`<button class="link-chip" data-nav="split"><span class="dot"></span>${bal > 0 ? `${esc(partnerLabel())}ติดเรา` : `เราติด${esc(partnerLabel())}`} <b class="num">${money(Math.abs(bal))}</b> ›</button>`);
     if (S.installEvt) chips.push(`<button class="link-chip" data-action="install">📲 ติดตั้งลงหน้าจอ</button>`);
     if (!DB.ok) chips.push(`<span class="link-chip warn">⚠️ เครื่องนี้บันทึกถาวรไม่ได้ ข้อมูลจะหายเมื่อปิดแอพ</span>`);
+    const realCount = S.txs.filter((t) => !t.demo).length;
+    const since = S.settings.lastBackupAt ? Math.floor((Date.now() - new Date(S.settings.lastBackupAt)) / 864e5) : null;
+    if (realCount >= 10 && (since == null || since >= 30)) chips.push(`<button class="link-chip warn" data-action="export">💾 ${since == null ? 'ยังไม่เคยสำรองข้อมูล' : `ไม่ได้สำรองข้อมูลมา ${since} วัน`} · สำรองเลย</button>`);
     return `${header('จดสลิป', true)}
       <div class="card hero">
         <div class="label">ใช้ไปเดือนนี้</div>
@@ -621,6 +633,7 @@
         <div class="stat"><small>เฉลี่ยต่อวัน</small><b class="num">${money(Math.round(s.expense / Math.max(1, daysSoFar)))}</b></div>
         <div class="stat"><small>เทียบเดือนก่อน</small><b class="num">${diff == null ? '–' : (diff > 0 ? '▲ ' : diff < 0 ? '▼ ' : '') + Math.abs(Math.round(diff)) + '%'}</b></div>
       </div>
+      ${bankCard(list, s.expense)}
       <div class="sec-title">ใช้ไปกับอะไรบ้าง <small>นับเฉพาะส่วนของเรา</small></div>
       <div class="card">${rows.length ? rows.map(([id, v]) => {
         const c = catById(id);
@@ -631,6 +644,25 @@
       <div class="sec-title">รายจ่ายรายวัน <small>แตะแท่งเพื่อดูยอด</small></div>
       <div class="card chart" id="daily">${dailyChart(daily, ym)}</div>
       ${Object.keys(incRows).length ? `<div class="sec-title">รายรับ</div><div class="card">${Object.entries(incRows).map(([id, v]) => { const c = catById(id); return `<div class="cat-row"><div class="e">${c.e}</div><div class="n"><span>${esc(c.n)}</span></div><div class="v num">${money(v)}</div></div>`; }).join('')}</div>` : ''}`;
+  }
+
+  // which bank each expense left from: the bank code in the slip's QR (or the slip's look); typed-in = cash/manual
+  const bankName = (id) => { const b = Object.values(SlipParser.BANKS).find((x) => x.id === id); return b ? b.name : null; };
+  function bankOf(t) {
+    if (t.bank === 'cash' || (!t.bank && t.source !== 'slip')) return { id: 'cash', n: 'เงินสด/จดเอง', e: '💵' };
+    if (!t.bank) return { id: 'unknown', n: 'ไม่ทราบธนาคาร (แตะรายการเพื่อเลือก)', e: '❔' };
+    return { id: t.bank, n: bankName(t.bank) || t.bankName || 'ธนาคารอื่น', e: '🏦' };
+  }
+  function bankCard(list, total) {
+    const by = {};
+    list.forEach((t) => { const v = myExpense(t); if (v > 0) { const b = bankOf(t); (by[b.id] = by[b.id] || { b, v: 0, n: 0 }).v += v; by[b.id].n++; } });
+    const rows = Object.values(by).sort((a, b) => b.v - a.v);
+    if (!rows.length) return '';
+    const max = rows[0].v;
+    return `<div class="sec-title">จ่ายผ่านธนาคารไหน <small>เดือนนี้</small></div>
+      <div class="card">${rows.map((r) => `<div class="cat-row"><div class="e">${r.b.e}</div>
+        <div><div class="n"><span>${esc(r.b.n)}</span><small class="num">${r.n} รายการ · ${Math.round((r.v / total) * 100)}%</small></div><div class="b"><i style="width:${(r.v / max) * 100}%"></i></div></div>
+        <div class="v num">${money(r.v)}</div></div>`).join('')}</div>`;
   }
 
   function dailyChart(vals, ym) {
@@ -709,7 +741,8 @@
       </div>
       <div class="group-title">สำรองข้อมูล (ทำทุกเดือนนะ)</div>
       <div class="set-group">
-        <button class="set-row" data-action="export"><span class="e">💾</span>สำรองข้อมูลเป็นไฟล์<span class="r">${S.txs.length} รายการ</span></button>
+        <button class="set-row" data-action="export"><span class="e">💾</span>สำรองข้อมูลเป็นไฟล์<span class="r">${S.txs.length} รายการ<br><small>${st.lastBackupAt ? 'ล่าสุด ' + esc(fullDate(st.lastBackupAt.slice(0, 10))) : 'ยังไม่เคยสำรอง'}</small></span></button>
+        <div class="set-row"><span class="e">📦</span>พื้นที่ในเครื่อง<span class="r">${S.persisted ? '✅ เก็บถาวร' : '⚠️ ยังไม่ถาวร'}${S.usage ? ' · ' + (S.usage / 1048576).toFixed(1) + ' MB' : ''}<br><small>รูปสลิปย่อ ${S.txs.filter((t) => t.thumb).length} รูป</small></span></div>
         <button class="set-row" data-action="import"><span class="e">📂</span>กู้คืนจากไฟล์</button>
         ${demoCount ? `<button class="set-row" data-action="clearDemo"><span class="e">🧹</span>ลบข้อมูลตัวอย่าง<span class="r">${demoCount} รายการ</span></button>` : `<button class="set-row" data-action="addDemo"><span class="e">🧪</span>ใส่ข้อมูลตัวอย่างไว้ลองเล่น</button>`}
         <button class="set-row danger" data-action="wipe"><span class="e">🗑️</span>ลบข้อมูลทั้งหมด</button>
@@ -770,7 +803,11 @@
     layer.innerHTML = `<div class="scrim" data-scrim><div class="sheet ${cls}">${html}</div></div>`;
     document.body.style.overflow = 'hidden';
   }
-  function closeLayer() { layer.innerHTML = ''; document.body.style.overflow = ''; }
+  function closeLayer() {
+    layer.innerHTML = ''; document.body.style.overflow = '';
+    // reload into the new version only if nothing re-opens right away (e.g. review screen after reading slips)
+    if (S.updateReady) setTimeout(() => { if (!layer.innerHTML) location.reload(); }, 400);
+  }
   function ask(title, msg, okText, danger) {
     return new Promise((res) => {
       layer.insertAdjacentHTML('beforeend', `<div class="scrim" id="askScrim" style="align-items:center"><div class="dialog"><h3 style="margin:0">${esc(title)}</h3><p>${msg}</p>
@@ -809,6 +846,8 @@
 
   function renderReview() {
     D = S.queue[S.qi];
+    // an account learned from an earlier slip in this same batch can clear the "not ours" warning
+    if (D.notMine && D.senderAcct && (S.settings.myAccounts || []).includes(D.senderAcct)) D.notMine = false;
     formMode = 'review';
     renderForm();
   }
@@ -863,6 +902,11 @@
     }
     const partyLabel = D.type === 'income' ? 'ได้รับจาก' : 'จ่ายให้ / ร้าน';
     const party = `<div class="${fieldCls('party')}"><label>${partyLabel}</label><input class="input" data-f="party" value="${esc(D.party)}" placeholder="ไม่ใส่ก็ได้"></div>`;
+    const curBank = D.bank || (D.source === 'slip' ? '' : 'cash');
+    const bankOpts = [['kbank', 'กสิกรไทย'], ['ktb', 'กรุงไทย'], ['scb', 'ไทยพาณิชย์'], ['bbl', 'กรุงเทพ'], ['bay', 'กรุงศรี'], ['ttb', 'ทีทีบี'], ['gsb', 'ออมสิน'], ['cash', 'เงินสด/อื่นๆ']];
+    const bankSel = `<div class="field"><label>${D.type === 'income' ? 'เข้าบัญชี' : 'จ่ายผ่าน'}</label><select class="input" data-f="bank">
+      ${curBank ? '' : '<option value="" selected>ไม่ทราบ — เลือกธนาคาร</option>'}
+      ${bankOpts.map(([k, l]) => `<option value="${k}" ${curBank === k ? 'selected' : ''}>${l}</option>`).join('')}</select></div>`;
     const dt = `<div class="two"><div class="${fieldCls('date')}"><label>วันที่</label><input class="input" type="date" data-f="date" value="${esc(D.date)}"></div>
       <div class="${fieldCls('time')}"><label>เวลา</label><input class="input" type="time" data-f="time" value="${esc(D.time)}"></div></div>
       <div class="hint" id="beDate" style="margin:-8px 2px 14px">${D.date ? esc(dFmt(D.date, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })) : ''}</div>`;
@@ -872,7 +916,7 @@
       : `<div class="btn-row"><button class="btn" data-action="skip">ข้ามใบนี้</button><button class="btn primary" data-action="saveDraft">บันทึก${S.qi < n - 1 ? ' แล้วไปต่อ' : ''}</button></div>`;
     else if (formMode === 'edit') btns = `<button class="btn primary block" data-action="saveDraft">บันทึก</button><button class="btn danger block mt" data-action="delete">ลบรายการนี้</button>`;
     else btns = `<button class="btn primary block" data-action="saveDraft">บันทึก</button>`;
-    const html = head + slip + typeSeg + amt + memo + cat + split + party + dt + btns;
+    const html = head + slip + typeSeg + amt + memo + cat + split + party + bankSel + dt + btns;
     const existing = layer.querySelector('.sheet.form');
     if (existing) { const top = existing.scrollTop; existing.innerHTML = html; existing.scrollTop = top; }
     else openLayer(html, 'form full');
@@ -897,6 +941,11 @@
       if (old) t.settled = old.settled && JSON.stringify([old.amount, old.myShare, old.splitMode, old.payer]) === JSON.stringify([t.amount, t.myShare, t.splitMode, t.payer]);
     }
     learnFrom(t, D.ocrMemo);
+    if (formMode === 'review' && D.learnAccts && D.learnAccts.length && !D.notMine) {
+      const set = new Set(S.settings.myAccounts || []);
+      D.learnAccts.forEach((a) => set.add(a));
+      S.settings.myAccounts = [...set].slice(-12);
+    }
     await DB.putTx(t);
     const i = S.txs.findIndex((x) => x.id === t.id);
     if (i >= 0) S.txs[i] = t; else S.txs.push(t);
@@ -941,6 +990,8 @@
     openLayer(`<div class="grab"></div><h2>ชื่อ <button class="x" data-action="close">✕</button></h2>
       <div class="field"><label>ชื่อเรา (ตามบัญชีธนาคาร)</label><input class="input" id="nmMe" value="${esc(st.myNames)}"><div class="hint">ใส่หลายชื่อได้ คั่นด้วย , เช่น ชื่อไทย, ชื่ออังกฤษ</div></div>
       <div class="field"><label>ชื่อแฟน</label><input class="input" id="nmP" value="${esc(st.partnerName)}"></div>
+      <div class="field"><label>บัญชีของเรา (เลข 4 ตัวท้าย)</label><input class="input num" id="nmAcct" inputmode="numeric" placeholder="เช่น 9410, 4816" value="${esc((st.myAccounts || []).join(', '))}">
+        <div class="hint">แอพจำให้เองจากสลิปที่บันทึก ใช้เช็กว่าสลิปโอนจากบัญชีเราจริงไหม แม้อ่านชื่อเพี้ยน</div></div>
       <button class="btn primary block" data-action="saveNames">บันทึก</button>`);
   }
   function openBudget() {
@@ -997,18 +1048,20 @@
 
   /* ================= backup ================= */
   async function exportData() {
-    const data = { app: 'jodslip', version: 1, exportedAt: new Date().toISOString(), settings: S.settings, txs: S.txs };
+    const data = { app: 'jodslip', version: SCHEMA, appVersion: APP_VERSION, exportedAt: new Date().toISOString(), settings: S.settings, txs: S.txs };
+    const done = async () => { S.settings.lastBackupAt = new Date().toISOString(); await saveSettings(); render(); };
     const name = `jodslip-backup-${todayISO()}.json`;
     const blob = new Blob([JSON.stringify(data)], { type: 'application/json' });
     try {
       const file = new File([blob], name, { type: 'application/json' });
-      if (navigator.canShare && navigator.canShare({ files: [file] })) { await navigator.share({ files: [file], title: 'สำรองข้อมูลจดสลิป' }); return; }
+      if (navigator.canShare && navigator.canShare({ files: [file] })) { await navigator.share({ files: [file], title: 'สำรองข้อมูลจดสลิป' }); await done(); toast('สำรองข้อมูลแล้ว'); return; }
     } catch (e) { if (e && e.name === 'AbortError') return; }
     try {
       const a = document.createElement('a');
       a.href = URL.createObjectURL(blob); a.download = name;
       document.body.appendChild(a); a.click(); a.remove();
       setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+      await done();
       toast('ดาวน์โหลดไฟล์สำรองแล้ว');
     } catch (e) { toast('เครื่องนี้ดาวน์โหลดไฟล์ไม่ได้'); }
   }
@@ -1016,12 +1069,18 @@
     try {
       const data = JSON.parse(await file.text());
       if (data.app !== 'jodslip' || !Array.isArray(data.txs)) throw new Error('bad');
+      if ((data.version || 1) > SCHEMA) { toast('ไฟล์นี้มาจากแอพเวอร์ชันใหม่กว่า อัปเดตแอพก่อนนะ'); return; }
       const have = new Set(S.txs.map((t) => t.id));
       let n = 0;
-      for (const t of data.txs) if (!have.has(t.id)) { await DB.putTx(t); S.txs.push(t); n++; }
-      if (data.settings && data.settings.learn) {
-        S.settings.learn.memo = Object.assign({}, data.settings.learn.memo, S.settings.learn.memo);
-        S.settings.learn.party = Object.assign({}, data.settings.learn.party, S.settings.learn.party);
+      for (const t0 of data.txs) if (!have.has(t0.id)) { const t = migrateTx(t0); await DB.putTx(t); S.txs.push(t); n++; }
+      if (data.settings) {
+        const L = data.settings.learn || {};
+        S.settings.learn.memo = Object.assign({}, L.memo, S.settings.learn.memo);
+        S.settings.learn.party = Object.assign({}, L.party, S.settings.learn.party);
+        S.settings.learn.fix = Object.assign({}, L.fix, S.settings.learn.fix);
+        S.settings.myAccounts = [...new Set([...(S.settings.myAccounts || []), ...(data.settings.myAccounts || [])])];
+        if (!S.settings.myNames && data.settings.myNames) S.settings.myNames = data.settings.myNames;
+        if (!S.settings.partnerName && data.settings.partnerName) S.settings.partnerName = data.settings.partnerName;
         const ids = new Set((S.settings.customCats || []).map((c) => c.id));
         S.settings.customCats = (S.settings.customCats || []).concat((data.settings.customCats || []).filter((c) => !ids.has(c.id)));
         await saveSettings();
@@ -1095,6 +1154,7 @@
       case 'editNames': openNames(); break;
       case 'saveNames':
         S.settings.myNames = $('#nmMe').value.trim(); S.settings.partnerName = $('#nmP').value.trim();
+        S.settings.myAccounts = [...new Set(($('#nmAcct').value.match(/\d{4}/g) || []))];
         await saveSettings(); closeLayer(); render(); break;
       case 'editBudget': openBudget(); break;
       case 'saveBudget': S.settings.budget = parseFloat($('#bgt').value) || 0; await saveSettings(); closeLayer(); render(); break;
@@ -1173,21 +1233,61 @@
     } catch (e) { console.warn(e); }
   }
 
+  /* ================= data versions ================= */
+  // Each stored record gets shape-fixes here, so data saved by older versions keeps working.
+  function migrateTx(t) {
+    const x = Object.assign({}, t);
+    if (x.amount != null) x.amount = +x.amount;
+    if (x.myShare != null) x.myShare = +x.myShare;
+    if (!x.payer) x.payer = 'me';
+    if (!x.splitMode) x.splitMode = 'none';
+    if (!x.createdAt) x.createdAt = Date.now();
+    if (x.source === 'slip' && !x.bank && x.dedupeKey) {
+      const code = (/^(\d{3}):/.exec(x.dedupeKey) || [])[1];
+      const b = code && SlipParser.BANKS[code];
+      if (b) { x.bank = b.id; x.bankName = b.name; }
+    }
+    return x;
+  }
+  async function migrate() {
+    const from = S.settings.schema || 1;
+    if (from >= SCHEMA) return;
+    // 1 → 2: learned-fix table, own accounts, backup date; normalise old records
+    S.settings.learn = Object.assign({ memo: {}, party: {}, fix: {} }, S.settings.learn || {});
+    S.settings.myAccounts = S.settings.myAccounts || [];
+    for (let i = 0; i < S.txs.length; i++) { S.txs[i] = migrateTx(S.txs[i]); await DB.putTx(S.txs[i]); }
+    S.settings.schema = SCHEMA;
+    await saveSettings();
+  }
+
   /* ================= boot ================= */
   async function boot() {
     await DB.open();
-    S.settings = Object.assign(defaultSettings(), (await DB.get('settings')) || {});
+    S.settings = Object.assign(defaultSettings(), { schema: 1 }, (await DB.get('settings')) || {});
     S.settings.learn = Object.assign({ memo: {}, party: {}, fix: {} }, S.settings.learn || {});
     S.txs = await DB.allTx();
+    await migrate();
     render();
     if (!S.settings.onboarded) openOnboarding();
-    try { if (navigator.storage && navigator.storage.persist) navigator.storage.persist(); } catch (e) { /* ignore */ }
+    // ask the browser to keep our data even when the phone is low on space
+    try {
+      if (navigator.storage && navigator.storage.persist) {
+        S.persisted = (await navigator.storage.persisted()) || (await navigator.storage.persist());
+      }
+      if (navigator.storage && navigator.storage.estimate) S.usage = (await navigator.storage.estimate()).usage;
+    } catch (e) { /* ignore */ }
     if ('serviceWorker' in navigator) {
       try {
-        await navigator.serviceWorker.register('sw.js');
-        if (!navigator.serviceWorker.controller) {
-          navigator.serviceWorker.addEventListener('controllerchange', () => { if (S.settings.onboarded) warmOCR(); }, { once: true });
-        }
+        const hadController = !!navigator.serviceWorker.controller;
+        const reg = await navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' });
+        navigator.serviceWorker.addEventListener('controllerchange', () => {
+          if (!hadController) { if (S.settings.onboarded) warmOCR(); return; }
+          // a new version just took over: reload now, or as soon as nothing is open
+          if (!layer.innerHTML) location.reload();
+          else { S.updateReady = true; toast('มีเวอร์ชันใหม่ จะอัปเดตเมื่อปิดหน้านี้'); }
+        });
+        // check for a new version whenever the app comes back to the foreground
+        document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') reg.update().catch(() => {}); });
       } catch (e) { /* not available here (e.g. preview frame) */ }
     }
     if (S.settings.onboarded) warmOCR();

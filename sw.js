@@ -1,5 +1,5 @@
 /* จดสลิป service worker: offline app shell + offline slip reader */
-const VERSION = 'jodslip-v0.1.3';
+const VERSION = 'jodslip-v0.1.4';
 const SHELL = ['./', './index.html', './app.js', './parser.js', './manifest.webmanifest',
   './icon.svg', './icon-192.png', './icon-512.png', './apple-touch-icon.png'];
 const VENDOR_CACHE = 'jodslip-vendor-v1';
@@ -24,7 +24,8 @@ function vendorSources(name) {
 const TYPES = { js: 'text/javascript', gz: 'application/gzip', wasm: 'application/wasm' };
 
 self.addEventListener('install', (e) => {
-  e.waitUntil(caches.open(VERSION).then((c) => c.addAll(SHELL)).then(() => self.skipWaiting()));
+  // cache: 'reload' skips the browser's HTTP cache, so a new version never installs stale files
+  e.waitUntil(caches.open(VERSION).then((c) => c.addAll(SHELL.map((u) => new Request(u, { cache: 'reload' })))).then(() => self.skipWaiting()));
 });
 self.addEventListener('activate', (e) => {
   e.waitUntil((async () => {
@@ -92,11 +93,12 @@ self.addEventListener('fetch', (e) => {
   }
 
   if (url.origin === location.origin) {
-    // app shell: network first (so updates arrive), fall back to cache offline
+    // app shell: network first, revalidating with GitHub instead of trusting the browser's
+    // ~10-minute HTTP cache, so a new version shows up on the next open; cache is the offline fallback
     e.respondWith((async () => {
       const c = await caches.open(VERSION);
       try {
-        const r = await fetch(req);
+        const r = req.mode === 'navigate' ? await fetch(req.url, { cache: 'no-cache', credentials: 'same-origin' }) : await fetch(req, { cache: 'no-cache' });
         if (r.ok) c.put(req, r.clone());
         return r;
       } catch (err) {

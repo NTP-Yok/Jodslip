@@ -268,20 +268,35 @@
     // ---- sender / receiver
     const idxFrom = lines.findIndex((l) => /^จาก/.test(compact(l)) && !/^จากนั้น/.test(compact(l)));
     const idxTo = lines.findIndex((l) => /^ไปยัง/.test(compact(l)));
-    const firstContentFrom = (i, stopAt) => {
-      for (let k = i; k < Math.min(stopAt, lines.length); k++) {
-        if (isContentLine(lines[k])) return lines[k];
-      }
-      return '';
+    const firstContentIdx = (i, stopAt) => {
+      for (let k = i; k < Math.min(stopAt, lines.length); k++) if (isContentLine(lines[k])) return k;
+      return -1;
     };
+    // last 4 visible digits of the account printed under a name: "xxx-x-x9410-x" → 9410
+    const acctAfter = (i, stopAt) => {
+      if (i < 0) return null;
+      for (let k = i + 1; k <= Math.min(i + 3, (stopAt == null ? lines.length : stopAt) - 1, lines.length - 1); k++) {
+        const c = compact(lines[k]);
+        if (/[xX×*]{2,}/.test(c) || /\d{3}-\d/.test(c) || /^\(?\d{10,}\)?$/.test(c)) {
+          const d = c.replace(/\D/g, '');
+          if (d.length >= 3) return d.slice(-4);
+        }
+      }
+      return null;
+    };
+    let sIdx = -1, rIdx = -1;
     if (idxFrom >= 0 || idxTo >= 0) {
       if (idxFrom >= 0) {
         const same = afterLabel(lines[idxFrom], /^จาก/);
-        r.sender = cleanName(same && isContentLine(same) ? same : firstContentFrom(idxFrom + 1, idxTo > idxFrom ? idxTo : idxFrom + 4));
+        if (same && isContentLine(same)) { r.sender = cleanName(same); sIdx = idxFrom; }
+        else { sIdx = firstContentIdx(idxFrom + 1, idxTo > idxFrom ? idxTo : idxFrom + 4); r.sender = cleanName(sIdx >= 0 ? lines[sIdx] : ''); }
+        r.senderAcct = acctAfter(sIdx, idxTo > idxFrom ? idxTo : undefined);
       }
       if (idxTo >= 0) {
         const same = afterLabel(lines[idxTo], /^ไปยัง/);
-        r.receiver = cleanName(same && isContentLine(same) ? same : firstContentFrom(idxTo + 1, idxTo + 4));
+        if (same && isContentLine(same)) { r.receiver = cleanName(same); rIdx = idxTo; }
+        else { rIdx = firstContentIdx(idxTo + 1, idxTo + 4); r.receiver = cleanName(rIdx >= 0 ? lines[rIdx] : ''); }
+        r.receiverAcct = acctAfter(rIdx, idxAmt > rIdx ? idxAmt : undefined);
       }
     } else {
       // K PLUS style: sender block, then receiver block, before "จำนวน"
@@ -292,6 +307,8 @@
       const ti = ci.findIndex((k) => RE_TITLE.test(lines[k]));
       const start = ti >= 0 ? ti : 0;
       r.sender = cleanName(ci[start] != null ? lines[ci[start]] : '');
+      sIdx = ci[start] != null ? ci[start] : -1;
+      r.senderAcct = acctAfter(sIdx, ci[start + 1] != null ? ci[start + 1] : stop);
       let rv = ci[start + 1] != null ? lines[ci[start + 1]] : '';
       // long names wrap: "นางสาว พลอยรัศญ์ กล่อม" + "ปัญญา", "SCB มณี SHOP (ร้านแหนม" + "ทอด)"
       const rk = ci[start + 1];
@@ -299,6 +316,7 @@
         rv += (/[\u0E00-\u0E7F]$/.test(rv) && /^[\u0E00-\u0E7F]/.test(lines[rk + 1]) ? '' : ' ') + lines[rk + 1];
       }
       r.receiver = cleanName(rv);
+      r.receiverAcct = rk != null ? acctAfter(rk, stop) : null;
     }
 
     return r;
@@ -320,13 +338,22 @@
     if (l.startsWith(s)) return true;
     if (s.length >= 4 && l.startsWith(s.slice(0, Math.max(4, s.length - 1)))) return true;
     if (s.length >= 4 && l.includes(s)) return true; // e.g. a leftover title or icon noise in front
-    // tolerate a misread letter or two (OCR typos in our own name)
+    // tolerate misread letters (OCR typos in our own name, e.g. ณฐพงศ์ read as ณฐธุพงศ์)
     if (s.length >= 4) {
       const tol = s.length >= 7 ? 2 : 1;
       for (const n of [s.length - 1, s.length, s.length + 1]) if (n <= l.length && lev(s, l.slice(0, n)) <= tol) return true;
     }
+    const ks = skeleton(s), kl = skeleton(l);
+    if (ks.length >= 4) {
+      const tol = ks.length >= 5 ? 2 : 1;
+      for (let st = 0; st <= Math.min(2, kl.length - 1); st++)
+        for (let n = ks.length - tol; n <= ks.length + tol; n++)
+          if (n > 0 && st + n <= kl.length && lev(ks, kl.slice(st, st + n)) <= tol) return true;
+    }
     return false;
   }
+  // consonants only: drop Thai vowels and tone marks, which OCR gets wrong most often
+  function skeleton(x) { return x.replace(/[\u0E30-\u0E3A\u0E40-\u0E4E]/g, ''); }
   function lev(a, b) {
     const m = a.length, n = b.length, d = Array.from({ length: m + 1 }, (_, i) => [i]);
     for (let j = 1; j <= n; j++) d[0][j] = j;
