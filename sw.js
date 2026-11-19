@@ -1,7 +1,7 @@
 /* จดสลิป service worker: offline app shell + offline slip reader */
-const VERSION = 'jodslip-v0.1.4';
+const VERSION = 'jodslip-v0.1.5';
 const SHELL = ['./', './index.html', './app.js', './parser.js', './manifest.webmanifest',
-  './icon.svg', './icon-192.png', './icon-512.png', './apple-touch-icon.png'];
+  './icon-maskable-512.png', './icon-192.png', './icon-512.png', './apple-touch-icon.png'];
 const VENDOR_CACHE = 'jodslip-vendor-v1';
 
 // Same-origin ./vendor/* paths are served from these CDNs and cached forever,

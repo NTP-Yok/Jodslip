@@ -5,29 +5,32 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>จดสลิป</title>
 <meta name="description" content="แอพจดรายรับรายจ่ายจากสลิปโอนเงิน ใช้งานออฟไลน์ ข้อมูลอยู่ในเครื่อง">
-<meta name="theme-color" content="#F5F3EE" media="(prefers-color-scheme: light)">
-<meta name="theme-color" content="#171B1A" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#FFF7F8" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#1D191A" media="(prefers-color-scheme: dark)">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="จดสลิป">
 <link rel="manifest" href="manifest.webmanifest">
-<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="icon" href="icon-192.png" type="image/png">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
 :root{
-  --bg:#F5F3EE; --surface:#FFFFFF; --surface-2:#EFECE5; --line:#E4E0D7;
-  --ink:#27302C; --ink-2:#56625C; --muted:#86918C;
-  --primary:#3F7A64; --primary-ink:#FFFFFF; --primary-soft:#E2EEE8;
-  --expense:#B0563F; --expense-soft:#F7E7E1;
-  --income:#2C7A5E; --income-soft:#DDF0E7;
-  --neutral-soft:#ECEAE4;
+  /* Pink Cherub #FDB5C1 + Butterfly #CBDEA6, with deeper shades for readable text */
+  --pink:#FDB5C1; --pink-soft:#FFE4EA; --butterfly:#CBDEA6;
+  --bg:#FFF7F8; --surface:#FFFFFF; --surface-2:#FBEEF1; --line:#F3DEE3;
+  --ink:#2F2A2C; --ink-2:#6E6266; --muted:#7E7175;
+  --primary:#4F7A35; --primary-ink:#FFFFFF; --primary-soft:#EEF5E0;
+  --expense:#C2456A; --expense-soft:#FFE4EA;
+  --income:#3E6B2A; --income-soft:#EAF3DA;
+  --neutral-soft:#F4ECEE;
   --warn:#94600F; --warn-soft:#FDF1DB; --warn-line:#EBCB8E;
-  --bar:#7FAE99; --bar-strong:#3F7A64;
-  --shadow:0 1px 2px rgba(39,48,44,.06),0 4px 16px rgba(39,48,44,.06);
+  --bar:#CBDEA6; --bar-strong:#86AD57;
+  --hero:linear-gradient(135deg,#FFE1E8 0%,#FFF0F3 60%,#F3F8EA 100%);
+  --shadow:0 1px 2px rgba(120,60,75,.06),0 4px 16px rgba(120,60,75,.07);
   --radius:18px; --radius-sm:12px;
   --nav-h:64px;
   --font:'IBM Plex Sans Thai','Noto Sans Thai','Sukhumvit Set','Thonburi','Leelawadee UI',system-ui,sans-serif;
@@ -35,14 +38,16 @@
 }
 @media (prefers-color-scheme: dark){
   :root{
-    --bg:#161A19; --surface:#1F2523; --surface-2:#28302D; --line:#323B37;
-    --ink:#E7ECE9; --ink-2:#B2BDB7; --muted:#85918B;
-    --primary:#7DBFA4; --primary-ink:#0F1F18; --primary-soft:#21372E;
-    --expense:#E8957F; --expense-soft:#3A2520;
-    --income:#79C9A5; --income-soft:#1D372B;
-    --neutral-soft:#2A302E;
+    --pink:#E8A3B0; --pink-soft:#3A272D; --butterfly:#B9D98F;
+    --bg:#1D191A; --surface:#272224; --surface-2:#312B2D; --line:#3C3436;
+    --ink:#F2EAEC; --ink-2:#C7BABE; --muted:#A3969A;
+    --primary:#B9D98F; --primary-ink:#1E2A12; --primary-soft:#2F3A24;
+    --expense:#F49AB0; --expense-soft:#43262E;
+    --income:#B9D98F; --income-soft:#2C3622;
+    --neutral-soft:#2E2829;
     --warn:#F0C27A; --warn-soft:#3A2F1C; --warn-line:#6B5528;
-    --bar:#4E7C68; --bar-strong:#7DBFA4;
+    --bar:#5E7A43; --bar-strong:#B9D98F;
+    --hero:linear-gradient(135deg,#3A272D 0%,#2C2427 60%,#2A3123 100%);
     --shadow:0 1px 2px rgba(0,0,0,.3),0 4px 16px rgba(0,0,0,.25);
     color-scheme:dark;
   }
@@ -58,7 +63,7 @@ button{cursor:pointer}
 /* header */
 .top{display:flex;align-items:center;justify-content:space-between;padding:8px 2px 12px}
 .brand{display:flex;align-items:center;gap:10px;font-weight:700;font-size:20px}
-.brand img{width:32px;height:32px;border-radius:9px}
+.brand img{width:36px;height:36px;border-radius:10px;box-shadow:0 1px 4px rgba(120,60,75,.18)}
 .month{display:flex;align-items:center;gap:2px;background:var(--surface);border-radius:999px;padding:3px;box-shadow:var(--shadow)}
 .month button{border:0;background:transparent;width:34px;height:34px;border-radius:50%;font-size:18px;color:var(--ink-2)}
 .month button:active{background:var(--surface-2)}
@@ -66,6 +71,7 @@ button{cursor:pointer}
 
 /* cards */
 .card{background:var(--surface);border-radius:var(--radius);padding:18px;box-shadow:var(--shadow);margin-bottom:14px}
+.hero{background:var(--hero)}
 .hero .label{color:var(--ink-2);font-size:14px}
 .hero .big{font-size:36px;font-weight:700;letter-spacing:-.5px;line-height:1.15;margin:2px 0 12px}
 .hero .row{display:flex;gap:10px}
@@ -73,7 +79,7 @@ button{cursor:pointer}
 .pill small{display:block;font-size:12.5px;color:var(--ink-2)}
 .pill b{font-size:17px}
 .pill.in{background:var(--income-soft)} .pill.in b{color:var(--income)}
-.pill.bal{background:var(--surface-2)}
+.pill.bal{background:var(--surface)}
 .budget{margin-top:14px}
 .budget .bar{height:10px;border-radius:99px;background:var(--surface-2);overflow:hidden}
 .budget .bar i{display:block;height:100%;border-radius:99px;background:var(--primary)}
@@ -123,7 +129,7 @@ nav.tabs .in{max-width:540px;margin:0 auto;height:var(--nav-h);display:grid;grid
 nav.tabs button{border:0;background:transparent;display:flex;flex-direction:column;align-items:center;gap:2px;font-size:11.5px;color:var(--muted);padding:6px 0}
 nav.tabs button.on{color:var(--primary);font-weight:600}
 nav.tabs svg{width:24px;height:24px}
-nav.tabs .fab{width:56px;height:56px;border-radius:18px;background:var(--primary);color:var(--primary-ink);margin:-26px auto 0;box-shadow:0 6px 18px rgba(63,122,100,.35);justify-content:center}
+nav.tabs .fab{width:56px;height:56px;border-radius:18px;background:var(--primary);color:var(--primary-ink);margin:-26px auto 0;box-shadow:0 6px 18px rgba(79,122,53,.32);justify-content:center}
 nav.tabs .fab svg{width:28px;height:28px}
 
 /* sheets */
@@ -185,6 +191,11 @@ nav.tabs .fab svg{width:28px;height:28px}
 .cat-row .b{height:8px;border-radius:0 4px 4px 0;background:var(--surface-2);margin-top:5px;overflow:hidden}
 .cat-row .b i{display:block;height:100%;background:var(--bar-strong);border-radius:0 4px 4px 0}
 .cat-row .v{font-weight:600;font-size:14.5px;min-width:72px;text-align:right}
+button.cat-row{width:100%;border:0;background:transparent;text-align:left;padding:8px 0;color:inherit}
+button.cat-row+button.cat-row{border-top:1px solid var(--line)}
+button.cat-row:active{background:var(--surface-2)}
+.bank-badge{width:34px;height:34px;border-radius:10px;display:grid;place-items:center;font-size:10.5px;font-weight:700;color:#fff;letter-spacing:-.2px}
+.cat-row .chev{color:var(--muted);margin-left:4px}
 .chart{position:relative}
 .chart svg{display:block;width:100%;height:auto}
 .chart .tip{position:absolute;top:0;transform:translateX(-50%);background:var(--ink);color:var(--bg);font-size:12.5px;padding:4px 8px;border-radius:8px;white-space:nowrap;pointer-events:none}

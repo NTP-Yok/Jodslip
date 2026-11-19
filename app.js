@@ -1,7 +1,7 @@
 /* จดสลิป — main app */
 (function () {
   'use strict';
-  const APP_VERSION = '0.1.4';
+  const APP_VERSION = '0.1.5';
   const SCHEMA = 2; // bump when the stored data shape changes; see migrate()
   const $ = (s, el = document) => el.querySelector(s);
   const app = $('#app');
@@ -648,21 +648,41 @@
 
   // which bank each expense left from: the bank code in the slip's QR (or the slip's look); typed-in = cash/manual
   const bankName = (id) => { const b = Object.values(SlipParser.BANKS).find((x) => x.id === id); return b ? b.name : null; };
+  // each bank's own brand colour (badge + bar), short label, and badge text colour
+  const BANK_STYLE = {
+    kbank: { c: '#138F2D', t: 'K' }, ktb: { c: '#1BA5E1', t: 'KTB' }, scb: { c: '#4E2A84', t: 'SCB' },
+    bbl: { c: '#1E4598', t: 'BBL' }, bay: { c: '#FEC43B', t: 'BAY', ink: '#4A3B12' }, ttb: { c: '#0050F0', t: 'ttb' },
+    gsb: { c: '#EB198D', t: 'GSB' }, baac: { c: '#00A651', t: 'ธกส' }, kkp: { c: '#594F74', t: 'KKP' }, lhb: { c: '#6E8B3D', t: 'LH' },
+    cash: { c: '#B9A9AE', t: '฿' }, unknown: { c: '#CFC3C7', t: '?' },
+  };
   function bankOf(t) {
-    if (t.bank === 'cash' || (!t.bank && t.source !== 'slip')) return { id: 'cash', n: 'เงินสด/จดเอง', e: '💵' };
-    if (!t.bank) return { id: 'unknown', n: 'ไม่ทราบธนาคาร (แตะรายการเพื่อเลือก)', e: '❔' };
-    return { id: t.bank, n: bankName(t.bank) || t.bankName || 'ธนาคารอื่น', e: '🏦' };
+    if (t.bank === 'cash' || (!t.bank && t.source !== 'slip')) return { id: 'cash', n: 'เงินสด/จดเอง' };
+    if (!t.bank) return { id: 'unknown', n: 'ไม่ทราบธนาคาร' };
+    return { id: t.bank, n: bankName(t.bank) || t.bankName || 'ธนาคารอื่น' };
   }
+  const bankStyle = (id) => BANK_STYLE[id] || { c: '#9A8E92', t: (id || '?').slice(0, 3).toUpperCase() };
+  const bankBadge = (id) => { const st = bankStyle(id); return `<span class="bank-badge" style="background:${st.c};color:${st.ink || '#fff'}">${esc(st.t)}</span>`; };
+  function bankTxs(ym, id) { return monthTx(ym).filter((t) => myExpense(t) > 0 && bankOf(t).id === id); }
   function bankCard(list, total) {
     const by = {};
     list.forEach((t) => { const v = myExpense(t); if (v > 0) { const b = bankOf(t); (by[b.id] = by[b.id] || { b, v: 0, n: 0 }).v += v; by[b.id].n++; } });
     const rows = Object.values(by).sort((a, b) => b.v - a.v);
     if (!rows.length) return '';
     const max = rows[0].v;
-    return `<div class="sec-title">จ่ายผ่านธนาคารไหน <small>เดือนนี้</small></div>
-      <div class="card">${rows.map((r) => `<div class="cat-row"><div class="e">${r.b.e}</div>
-        <div><div class="n"><span>${esc(r.b.n)}</span><small class="num">${r.n} รายการ · ${Math.round((r.v / total) * 100)}%</small></div><div class="b"><i style="width:${(r.v / max) * 100}%"></i></div></div>
-        <div class="v num">${money(r.v)}</div></div>`).join('')}</div>`;
+    return `<div class="sec-title">จ่ายผ่านธนาคารไหน <small>แตะเพื่อดูรายการ</small></div>
+      <div class="card">${rows.map((r) => `<button class="cat-row" data-action="bankList" data-bank="${esc(r.b.id)}"><div class="e">${bankBadge(r.b.id)}</div>
+        <div><div class="n"><span>${esc(r.b.n)}</span><small class="num">${r.n} รายการ · ${Math.round((r.v / total) * 100)}%</small></div><div class="b"><i style="width:${(r.v / max) * 100}%;background:${bankStyle(r.b.id).c}"></i></div></div>
+        <div class="v num">${money(r.v)}<span class="chev">›</span></div></button>`).join('')}</div>`;
+  }
+  function openBankList(id) {
+    const list = bankTxs(S.month, id);
+    const total = list.reduce((a, t) => a + myExpense(t), 0);
+    const name = list.length ? bankOf(list[0]).n : '';
+    openLayer(`<div class="grab"></div><h2><span style="display:flex;align-items:center;gap:10px">${bankBadge(id)}${esc(name)}</span><button class="x" data-action="close">✕</button></h2>
+      <div class="card" style="display:flex;justify-content:space-between;align-items:baseline">
+        <span class="muted">${esc(monthLabel(S.month))} · ${list.length} รายการ</span><b class="num" style="font-size:22px">${money(total)}</b></div>
+      ${id === 'unknown' ? '<div class="notice">แตะรายการแล้วเลือกช่อง “จ่ายผ่าน” เพื่อระบุธนาคาร</div>' : ''}
+      ${txList(list)}`, 'full');
   }
 
   function dailyChart(vals, ym) {
@@ -1041,6 +1061,7 @@
         date: d(base, day), time, payer: payer || 'me', splitMode: split || 'none', myShare: split ? amount / 2 : null,
         settled: base === pym, demo: true, createdAt: now + i,
       };
+      if (t.source === 'slip') { t.bank = ['kbank', 'kbank', 'ktb', 'kbank', 'scb'][i % 5]; t.bankName = bankName(t.bank); }
       if (payer === 'partner') t.party = P;
       await DB.putTx(t); S.txs.push(t);
     }
@@ -1119,6 +1140,7 @@
       case 'mprev': S.month = addMonths(S.month, -1); render(); break;
       case 'mnext': S.month = addMonths(S.month, 1); render(); break;
       case 'edit': openEdit(el.dataset.id); break;
+      case 'bankList': openBankList(el.dataset.bank); break;
       case 'saveDraft': saveDraft(); break;
       case 'skip':
         S.qi++;
