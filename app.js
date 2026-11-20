@@ -1,7 +1,7 @@
 /* จดสลิป — main app */
 (function () {
   'use strict';
-  const APP_VERSION = '0.1.8';
+  const APP_VERSION = '0.1.9';
   const SCHEMA = 2; // bump when the stored data shape changes; see migrate()
   const $ = (s, el = document) => el.querySelector(s);
   const app = $('#app');
@@ -215,12 +215,26 @@
       bank: null, bankName: null, ref: null, dedupeKey: null, thumb: null, checks: {},
     };
   }
+  // Is this account one of ours? 2 = sure, 1 = probably, 0 = no.
+  // Entries are either 4 plain digits (typed in, or learned by older versions) or a mask such as
+  // "?????9410?" (K PLUS) / "??????4820" (Krungthai) / a full account number. Masks are compared
+  // digit by digit from the right, so the same account matches on slips from different banks.
+  function acctHit(last4, mask) {
+    let best = 0;
+    for (const a of S.settings.myAccounts || []) {
+      if (/^\d{4}$/.test(a)) { if (last4 && a === last4) return 2; continue; }
+      const n = SlipParser.maskOverlap(a, mask);
+      if (n >= 4) return 2;
+      if (n === 3) best = 1; // different banks show different digits; 3 shared digits ≈ 1 in 1,000 chance
+    }
+    return best;
+  }
+  const showAcct = (a) => a.replace(/\?/g, 'x');
   function draftFromSlip(p, thumb, info) {
     const me = myNameList(), partner = partnerList();
-    const accts = S.settings.myAccounts || [];
-    // our account's last 4 digits are the most reliable signal (digits OCR far better than Thai names)
-    const sAcct = !!p.senderAcct && accts.includes(p.senderAcct);
-    const rAcct = !!p.receiverAcct && accts.includes(p.receiverAcct);
+    // our account number is the most reliable signal (digits OCR far better than Thai names)
+    const sHit = acctHit(p.senderAcct, p.senderMask), rHit = acctHit(p.receiverAcct, p.receiverMask);
+    const sAcct = sHit > 0, rAcct = rHit > 0;
     const sName = !!p.sender && SlipParser.matchesAny(p.sender, me);
     const rName = !!p.receiver && SlipParser.matchesAny(p.receiver, me);
     const sMe = sAcct || sName, rMe = rAcct || rName;
@@ -239,9 +253,13 @@
       source: 'slip', type, amount: p.amount != null ? String(p.amount) : '', memo, party: party || '',
       date: p.date || todayISO(), time: p.time || '', bank: p.bank, bankName: p.bankName, ref: p.ref,
       dedupeKey: info.dedupeKey, thumb, kind: p.kind, ocrMemo: p.memo || '',
-      notMine, sender: p.sender || '', senderAcct: p.senderAcct || null,
-      // accounts to remember as ours once the user saves this slip
-      learnAccts: [sName && p.senderAcct, (type === 'self' || rName) && p.receiverAcct].filter(Boolean),
+      notMine, sender: p.sender || '', senderAcct: p.senderAcct || null, senderMask: p.senderMask || null,
+      // a type decided only by a partial (cross-bank) account match deserves a second look
+      weakAcct: (sHit === 1 && !sName) || (rHit === 1 && !rName && !(p.sender && p.receiver && SlipParser.sameName(p.sender, p.receiver))),
+      // accounts to remember as ours once the user saves this slip (with digit positions)
+      learnSender: sMe ? (p.senderMask || p.senderAcct || null) : null,
+      learnReceiver: (type === 'self' || rMe) ? (p.receiverMask || p.receiverAcct || null) : null,
+      _p: p, _info: info,
     });
     d.category = guessCategory(type, memo, party);
     d.splitMode = type === 'expense' ? guessSplit(memo) : 'none';
@@ -1003,8 +1021,8 @@
 
   function renderReview() {
     D = S.queue[S.qi];
-    // an account learned from an earlier slip in this same batch can clear the "not ours" warning
-    if (D.notMine && D.senderAcct && (S.settings.myAccounts || []).includes(D.senderAcct)) D.notMine = false;
+    // accounts learned from earlier slips in this same batch can change how this one reads
+    if (D._p && !D._shown) { Object.assign(D, draftFromSlip(D._p, D.thumb, D._info)); D._shown = true; }
     formMode = 'review';
     renderForm();
   }
@@ -1030,6 +1048,7 @@
       head = `<div class="grab"></div><h2>ตรวจสลิป ${S.qi + 1}/${n} <button class="x" data-action="closeReview">✕</button></h2>
         ${n > 1 ? `<div class="steps">${S.queue.map((_, i) => `<i class="${i === S.qi ? 'on' : i < S.qi ? 'done' : ''}"></i>`).join('')}</div>` : ''}
         ${S.qi === 0 && S.queueDup ? `<div class="notice ok">ข้ามสลิปที่เคยบันทึกแล้ว ${S.queueDup} ใบ</div>` : ''}
+        ${D.weakAcct && !D.notMine ? `<div class="notice">🔎 เดาว่าเป็นบัญชีเราจากเลขบัญชีบางส่วน (คนละธนาคาร) ตรวจประเภทรายการอีกที</div>` : ''}
         ${D.notMine ? `<div class="notice">⚠️ สลิปนี้ไม่ได้โอนจากบัญชีเรา (ผู้โอน: <b>${esc(D.sender)}</b>) ถ้าส่งมาผิด กด “ข้ามใบนี้” ได้เลย</div>` : ''}
         ${D.ocrFailed ? `<div class="notice">อ่านตัวหนังสือในสลิปไม่ได้ ${navigator.onLine ? '' : '(ตอนนี้ออฟไลน์ และยังไม่เคยโหลดตัวอ่านสลิป)'} กรอกเองจากรูปได้เลย</div>` : ''}`;
     } else {
@@ -1098,10 +1117,19 @@
       if (old) t.settled = old.settled && JSON.stringify([old.amount, old.myShare, old.splitMode, old.payer]) === JSON.stringify([t.amount, t.myShare, t.splitMode, t.payer]);
     }
     learnFrom(t, D.ocrMemo);
-    if (formMode === 'review' && D.learnAccts && D.learnAccts.length && !D.notMine) {
+    // remember our accounts (with digit positions): the sender if this slip is ours,
+    // the receiver only if the money stayed with us (the type as finally saved)
+    const learn = formMode === 'review' && !D.notMine
+      ? [D.learnSender, (t.type === 'self' || t.type === 'income') && D.learnReceiver].filter(Boolean) : [];
+    if (learn.length) {
       const set = new Set(S.settings.myAccounts || []);
-      D.learnAccts.forEach((a) => set.add(a));
-      S.settings.myAccounts = [...set].slice(-12);
+      learn.forEach((a) => {
+        set.add(a);
+        // a plain 4-digit entry is now covered by the same digits with their positions
+        const vis = (a.match(/\d/g) || []).join('').slice(-4);
+        if (/\?/.test(a) && vis.length === 4) set.delete(vis);
+      });
+      S.settings.myAccounts = [...set].slice(-20);
     }
     await DB.putTx(t);
     const i = S.txs.findIndex((x) => x.id === t.id);
@@ -1147,8 +1175,8 @@
     openLayer(`<div class="grab"></div><h2>ชื่อ <button class="x" data-action="close">✕</button></h2>
       <div class="field"><label>ชื่อเรา (ตามบัญชีธนาคาร)</label><input class="input" id="nmMe" value="${esc(st.myNames)}"><div class="hint">ใส่หลายชื่อได้ คั่นด้วย , เช่น ชื่อไทย, ชื่ออังกฤษ</div></div>
       <div class="field"><label>ชื่อแฟน</label><input class="input" id="nmP" value="${esc(st.partnerName)}"></div>
-      <div class="field"><label>บัญชีของเรา (เลข 4 ตัวท้าย)</label><input class="input num" id="nmAcct" inputmode="numeric" placeholder="เช่น 9410, 4816" value="${esc((st.myAccounts || []).join(', '))}">
-        <div class="hint">แอพจำให้เองจากสลิปที่บันทึก ใช้เช็กว่าสลิปโอนจากบัญชีเราจริงไหม แม้อ่านชื่อเพี้ยน</div></div>
+      <div class="field"><label>บัญชีของเรา</label><input class="input num" id="nmAcct" placeholder="เช่น 9410, xxx-x-x9410-x" value="${esc((st.myAccounts || []).map(showAcct).join(', '))}">
+        <div class="hint">แอพจำให้เองจากสลิปที่บันทึก พร้อมตำแหน่งตัวเลข (x = ตัวที่ธนาคารปิดไว้) ใส่เลข 4 ตัวหรือเลขบัญชีเต็มเองก็ได้ เลขเต็มจับคู่ได้ทุกธนาคาร</div></div>
       <button class="btn primary block" data-action="saveNames">บันทึก</button>`);
   }
   function openBudget() {
@@ -1331,7 +1359,9 @@
       case 'editNames': openNames(); break;
       case 'saveNames':
         S.settings.myNames = $('#nmMe').value.trim(); S.settings.partnerName = $('#nmP').value.trim();
-        S.settings.myAccounts = [...new Set(($('#nmAcct').value.match(/\d{4}/g) || []))];
+        S.settings.myAccounts = [...new Set(($('#nmAcct').value.replace(/[\s-]/g, '').match(/[0-9xX?]+/g) || [])
+          .filter((a) => (a.match(/\d/g) || []).length >= 4 || (/[xX?]/.test(a) && (a.match(/\d/g) || []).length >= 3))
+          .map((a) => a.replace(/[xX]/g, '?')))];
         await saveSettings(); closeLayer(); render(); break;
       case 'editBudget': openBudget(); break;
       case 'saveBudget': S.settings.budget = parseFloat($('#bgt').value) || 0; await saveSettings(); closeLayer(); render(); break;

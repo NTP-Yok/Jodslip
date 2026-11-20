@@ -124,16 +124,30 @@
   const RE_TITLE = /^(นางสาว|น\.ส\.|นาย|นาง|ด\.ช\.|ด\.ญ\.|mr\.?|mrs\.?|ms\.?|miss)\s*/i;
   const RE_NOISE_LINE = /(สำเร็จ|รหัสอ้างอิง|เลขที่รายการ|ค่าธรรมเนียม|สแกน|ตรวจสอบ|ผู้รับเงินสามารถ|krungthai|^k\+?$|^scb\s*\W*$|วันที่ทำรายการ|รหัสอุทยาน|วันกำหนด|^บาท$)/i;
 
+  // Loopless Thai fonts (Krungthai, SCB) make some letters look Latin or like Thai digits:
+  // "ต.ค." comes out as "a.A." or "๓.ค.". Only used on the month between a day and a year.
+  const LOOKALIKE = { a: 'ต', A: 'ค', '๓': 'ต', n: 'ก', W: 'พ', w: 'พ', U: 'ม', u: 'ม', S: 'ธ', E: 'ธ', e: 'ต', o: 'อ', ด: 'ต', ฅ: 'ค', ศ: 'ส', ฆ: 'ม' };
+  function fixMonthToken(t) {
+    return t.replace(/(\d{1,2})(\s*)([A-Za-z\u0E00-\u0E7F.]{2,6}?)(\s*)((?:25|20)\d\d)/g, (all, d, s1, mon, s2, y) => {
+      const bare = mon.replace(/\./g, '');
+      if (TH_MONTHS.some(([a]) => a.replace(/\./g, '') === bare)) return all;
+      const fixed = bare.split('').map((ch) => LOOKALIKE[ch] || ch).join('');
+      const tries = [fixed, ...[...fixed].map((_, i) => fixed.slice(0, i) + fixed.slice(i + 1))]; // or one stray char ("ต๓.ค.")
+      let hit = null;
+      for (const f of tries) { hit = TH_MONTHS.find(([a]) => a.replace(/\./g, '') === f); if (hit) break; }
+      return hit ? d + ' ' + hit[0] + ' ' + y : all;
+    });
+  }
   function parseThaiDate(text) {
     // normalise month abbreviations that lost their dots
-    let t = text;
+    let t = fixMonthToken(text);
     for (const [abbr] of TH_MONTHS) {
       const bare = abbr.replace(/\./g, '');
       const loose = bare.split('').join('\\.?\\s?') + '\\.?';
       t = t.replace(new RegExp(loose, 'g'), abbr);
     }
     const monthAlt = TH_MONTHS.map(([a]) => a.replace(/\./g, '\\.')).join('|');
-    const re = new RegExp(`(\\d{1,2})\\s*(${monthAlt})\\s*(\\d{4}|\\d{2})(?:[^\\d\\n]{0,6}(\\d{1,2})\\s*[:.]\\s*(\\d{2}))?`);
+    const re = new RegExp(`(\\d{1,2})\\s*(${monthAlt})\\s*(\\d{4}|\\d{2})(?:[^\\d\\n]{0,6}(\\d{1,2})\\s*[:.]?\\s*(\\d{2})(?!\\d))?`);
     const m = re.exec(t);
     if (!m) return null;
     const day = +m[1];
@@ -142,6 +156,9 @@
     if (year < 100) year += 2500;
     if (year > 2400) year -= 543;
     if (day < 1 || day > 31) return null;
+    // a misread year ("2009", "3560") must not become a real-looking date
+    const nowY = new Date().getFullYear();
+    if (year < nowY - 3 || year > nowY + 1) return null;
     const pad = (n) => String(n).padStart(2, '0');
     let time = null;
     if (m[4] != null) {
@@ -184,9 +201,29 @@
     const c = compact(l);
     if (RE_NOISE_LINE.test(c)) return false;
     if (/(ม\.ค\.|ก\.พ\.|มี\.ค\.|เม\.ย\.|พ\.ค\.|มิ\.ย\.|ก\.ค\.|ส\.ค\.|ก\.ย\.|ต\.ค\.|พ\.ย\.|ธ\.ค\.)/.test(l)) return false;
-    return /^[xX×*]{2,}[\dxX×*\-–]*\d/.test(c) || /^[xX×*][-–]?\d{3,}/.test(c) || /^\d{3}-\d/.test(c) || /^\(?\d{10,}\)?$/.test(c) || /^\d{1,3}[xX×*]{2,}/.test(c);
+    return /^[xX×*%]{2,}[\dxX×*%\-–]*\d/.test(c) || /^[xX×*%][-–]?\d{3,}/.test(c) || /^\d{3}-\d/.test(c) || /^\(?\d{10,15}\)?$/.test(c) || /^\d{1,3}[xX×*%]{2,}/.test(c);
   }
   function acctDigits(l) { const d = compact(l).replace(/\D/g, ''); return d.length >= 3 ? d.slice(-4) : null; }
+  // Where the visible digits sit: banks hide different positions ("xxx-x-x9410-x" vs "XXX-X-XX482-0"),
+  // so keep the whole mask, right-aligned: "?????9410?" / "??????4820". '?' = hidden digit.
+  function acctMask(l) {
+    const c = compact(l).replace(/[()]/g, '');
+    if (!/\d/.test(c)) return null;
+    const m = c.replace(/[^0-9xX×*%]/g, '').replace(/[xX×*%]/g, '?');
+    return (m.match(/\d/g) || []).length >= 3 && m.length <= 16 ? m : null;
+  }
+  // How many visible digits two masks share at the same position (from the right); -1 if any differ.
+  function maskOverlap(a, b) {
+    if (!a || !b) return 0;
+    let n = 0;
+    for (let i = 1; i <= Math.min(a.length, b.length); i++) {
+      const x = a[a.length - i], y = b[b.length - i];
+      if (x === '?' || y === '?') continue;
+      if (x !== y) return -1;
+      n++;
+    }
+    return n;
+  }
 
   function afterLabel(line, labelRe) {
     const m = labelRe.exec(line);
@@ -266,7 +303,7 @@
     }
 
     // ---- memo
-    const reMemo = /บันทึกช่วยจ[ำา]|บันทึก|ช่วยจ[ำา]|memo|note/i;
+    const reMemo = /บันทึก\s*ช่?วยจ[ำา]|บันทึก|ช่?วยจ[ำา]|memo|note/i;
     const skel = (x) => compact(x).replace(/[\u0E30-\u0E3A\u0E40-\u0E4E]/g, '');
     let idxMemo = lines.findIndex((l) => reMemo.test(l));
     let fuzzyMemo = false;
@@ -277,7 +314,7 @@
         : afterLabel(lines[idxMemo], reMemo);
       if (fuzzyMemo && v === lines[idxMemo]) v = '';
       if (!v && idxMemo + 1 < lines.length) v = lines[idxMemo + 1];
-      v = (v || '').replace(/^[:：\s]+/, '').trim();
+      v = (v || '').replace(/^[:：\s]+/, '').replace(/^ช่?วยจ[ำา]\s*[:：]?\s*/, '').trim();
       if (v && !/^(ผู้รับเงิน|สแกน)/.test(v)) { r.memo = v; r.memoFound = true; }
     }
 
@@ -289,16 +326,20 @@
       return -1;
     };
     // last 4 visible digits of the account printed under a name: "xxx-x-x9410-x" → 9410
-    const acctAfter = (i, stopAt) => {
-      if (i < 0) return null;
+    const acctLineAfter = (i, stopAt) => {
+      if (i < 0) return -1;
       for (let k = i + 1; k <= Math.min(i + 3, (stopAt == null ? lines.length : stopAt) - 1, lines.length - 1); k++) {
         const c = compact(lines[k]);
-        if (/[xX×*]{2,}/.test(c) || /\d{3}-\d/.test(c) || /^\(?\d{10,}\)?$/.test(c)) {
-          const d = c.replace(/\D/g, '');
-          if (d.length >= 3) return d.slice(-4);
+        if (/[xX×*%]{2,}/.test(c) || /\d{3}-\d/.test(c) || /^\(?\d{10,15}\)?$/.test(c)) {
+          if (c.replace(/\D/g, '').length >= 3) return k;
         }
       }
-      return null;
+      return -1;
+    };
+    const acctAfter = (i, stopAt, side) => {
+      const k = acctLineAfter(i, stopAt);
+      r[side + 'Mask'] = k >= 0 ? acctMask(lines[k]) : null;
+      return k >= 0 ? acctDigits(lines[k]) : null;
     };
     let sIdx = -1, rIdx = -1;
     // Every slip prints, for each side: name → bank → account. Anchoring on the two account lines
@@ -309,7 +350,9 @@
     const cand = (k) => {
       if (k < 0 || k >= lines.length) return null;
       let c = lines[k];
-      if (/^(จาก|ไปยัง)/.test(compact(c))) c = afterLabel(c, /^(จาก|ไปยัง)\s*/);
+      const lab = /(จาก|ไปยัง)\s*/.exec(c);
+      if (lab && lab.index <= 8 && !/^จากนั้น/.test(c.slice(lab.index))) c = c.slice(lab.index + lab[0].length).trim();
+      else if (/^(จาก|ไปยัง)/.test(compact(c))) c = afterLabel(c, /^(จาก|ไปยัง)\s*/);
       if (!c || !isContentLine(c)) return null;
       // a misread "จาก"/"ไปยัง" label is short and has no title; real names are longer
       if (compact(c).length <= 5 && !RE_TITLE_ANY.test(c)) return null;
@@ -327,19 +370,20 @@
         r.receiver = cleanName(rv); rIdx = k; break;
       }
       r.senderAcct = acctDigits(lines[a0]); r.receiverAcct = acctDigits(lines[a1]);
+      r.senderMask = acctMask(lines[a0]); r.receiverMask = acctMask(lines[a1]);
     }
     if (r.sender && r.receiver) { /* done */ } else if (idxFrom >= 0 || idxTo >= 0) {
       if (idxFrom >= 0) {
         const same = afterLabel(lines[idxFrom], /^จาก/);
         if (same && isContentLine(same)) { r.sender = cleanName(same); sIdx = idxFrom; }
         else { sIdx = firstContentIdx(idxFrom + 1, idxTo > idxFrom ? idxTo : idxFrom + 4); r.sender = cleanName(sIdx >= 0 ? lines[sIdx] : ''); }
-        r.senderAcct = acctAfter(sIdx, idxTo > idxFrom ? idxTo : undefined);
+        r.senderAcct = acctAfter(sIdx, idxTo > idxFrom ? idxTo : undefined, 'sender');
       }
       if (idxTo >= 0) {
         const same = afterLabel(lines[idxTo], /^ไปยัง/);
         if (same && isContentLine(same)) { r.receiver = cleanName(same); rIdx = idxTo; }
         else { rIdx = firstContentIdx(idxTo + 1, idxTo + 4); r.receiver = cleanName(rIdx >= 0 ? lines[rIdx] : ''); }
-        r.receiverAcct = acctAfter(rIdx, idxAmt > rIdx ? idxAmt : undefined);
+        r.receiverAcct = acctAfter(rIdx, idxAmt > rIdx ? idxAmt : undefined, 'receiver');
       }
     } else {
       // K PLUS style: sender block, then receiver block, before "จำนวน"
@@ -351,7 +395,7 @@
       const start = ti >= 0 ? ti : 0;
       r.sender = cleanName(ci[start] != null ? lines[ci[start]] : '');
       sIdx = ci[start] != null ? ci[start] : -1;
-      r.senderAcct = acctAfter(sIdx, ci[start + 1] != null ? ci[start + 1] : stop);
+      r.senderAcct = acctAfter(sIdx, ci[start + 1] != null ? ci[start + 1] : stop, 'sender');
       let rv = ci[start + 1] != null ? lines[ci[start + 1]] : '';
       // long names wrap: "นางสาว พลอยรัศญ์ กล่อม" + "ปัญญา", "SCB มณี SHOP (ร้านแหนม" + "ทอด)"
       const rk = ci[start + 1];
@@ -359,7 +403,7 @@
         rv += (/[\u0E00-\u0E7F]$/.test(rv) && /^[\u0E00-\u0E7F]/.test(lines[rk + 1]) ? '' : ' ') + lines[rk + 1];
       }
       r.receiver = cleanName(rv);
-      r.receiverAcct = rk != null ? acctAfter(rk, stop) : null;
+      r.receiverAcct = rk != null ? acctAfter(rk, stop, 'receiver') : null;
     }
 
     return r;
@@ -385,7 +429,7 @@
     if (s.length >= 4) {
       // compare against windows near the start, allowing a few junk letters from a misread title ("แบ.ส.อารียา")
       const tol = s.length >= 7 ? 2 : 1;
-      for (let st = 0; st <= Math.min(4, l.length - 1); st++)
+      for (let st = 0; st <= Math.min(6, l.length - 1); st++)
         for (const n of [s.length - 1, s.length, s.length + 1]) if (st + n <= l.length && lev(s, l.slice(st, st + n)) <= tol) return true;
     }
     const ks = skeleton(s), kl = skeleton(l);
@@ -418,7 +462,7 @@
     return (list || []).some((n) => n && sameName(name, n));
   }
 
-  const api = { parseSlip, parseQR, dateFromRef, parseThaiDate, normName, sameName, matchesAny, looksLikeName, moneyIn, cleanLine, BANKS };
+  const api = { parseSlip, parseQR, dateFromRef, parseThaiDate, normName, sameName, matchesAny, looksLikeName, moneyIn, cleanLine, acctMask, maskOverlap, BANKS };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.SlipParser = api;
 })(typeof self !== 'undefined' ? self : this);
