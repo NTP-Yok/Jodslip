@@ -1,7 +1,7 @@
 /* จดสลิป — main app */
 (function () {
   'use strict';
-  const APP_VERSION = '0.1.9';
+  const APP_VERSION = '0.1.10';
   const SCHEMA = 2; // bump when the stored data shape changes; see migrate()
   const $ = (s, el = document) => el.querySelector(s);
   const app = $('#app');
@@ -243,7 +243,7 @@
     let type = 'expense', party = p.receiver, notMine = false;
     if (p.sender && p.receiver && SlipParser.sameName(p.sender, p.receiver)) type = 'self';
     else if (rMe && sOther) { type = 'income'; party = p.sender; }      // e.g. dad sends us money
-    else if (rMe) type = 'self';                                          // our own accounts (sender unreadable)
+    else if (rMe && p.kind !== 'bill') type = 'self';                    // our own accounts (sender unreadable); a bill is never paid to ourselves
     else if (sOther) notMine = true;                                      // someone else's slip, sent by mistake?
     else if (p.receiver && SlipParser.matchesAny(p.receiver, partner) && openSplitBalance() < 0) type = 'settle';
     const fix = (S.settings.learn.fix || {})[normText(p.memo)];

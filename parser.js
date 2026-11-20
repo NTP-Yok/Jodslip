@@ -100,6 +100,7 @@
       .replace(/[​-‍﻿]/g, '')
       .replace(/ํา/g, 'ำ') // ํา -> ำ
       .replace(/[“”"|¦©®°•■□▪▫◆◇►▼▲`~]/g, ' ')
+      .replace(/^\s*[^\s\d]{1,2}\s{3,}(?=[ก-ฮa-zA-Z])/, '') // a lone icon glyph far left of the text ("ง      องค์การ…")
       .replace(new RegExp(`([${TH}])\\s+(?=[${TH}])`, 'g'), '$1') // OCR puts spaces between Thai glyphs
       .replace(/\s{2,}/g, ' ')
       .trim();
@@ -171,7 +172,7 @@
   const RE_TITLE_ANY = /(นางสาว|น\.ส\.|นาย|นาง|mr\.?|mrs\.?|ms\.?|miss)\s*/i;
   function cleanName(s) {
     if (!s) return '';
-    let n = s;
+    let n = s.replace(/^[๐-๙]+\s*(?=[ก-ฮ])/, ''); // icon read as Thai digits ("๐๑องค์การ…")
     const t = RE_TITLE_ANY.exec(n);
     if (t && t.index > 0 && t.index <= 6) n = n.slice(t.index); // icon noise in front of the title
     n = n.replace(/^[^A-Za-z฀-๿(]+/, '').replace(/[^A-Za-z฀-๿.)]+$/, '').trim();
@@ -182,11 +183,16 @@
     return n.trim();
   }
 
+  // "ธ.กสิกรไทย" with a bit of icon noise in front ("69 ธ.กสิกรไทย") is still the bank, not a name
+  function isBankLine(c) {
+    return RE_BANKLINE.test(c) || RE_BANKLINE.test(c.replace(/^[^ก-ฮa-z]{1,4}/i, '')) || RE_BANKLINE.test(c.replace(/^.{1,3}(?=ธ\.|ธนาคาร)/, ''));
+  }
   function isContentLine(l) {
     const c = compact(l);
     if (c.length < 2) return false;
     if (RE_NOISE_LINE.test(c)) return false;
-    if (RE_BANKLINE.test(c)) return false;
+    if (isBankLine(c)) return false;
+    if (/^[A-Za-z,.;:'"|()[\]{}<>~_\-]{1,4}$/.test(c)) return false; // icon noise such as "NV,"
     if (RE_ACCOUNT.test(c) && !/[฀-๿]{3,}/.test(c.replace(/รหัส|บัญชี/g, ''))) return false;
     if (/^\d[\d\s:.,\-]*$/.test(c)) return false;
     if (/^(จาก|ไปยัง|จำนวน|บันทึก)/.test(c)) return false;
@@ -209,7 +215,11 @@
   function acctMask(l) {
     const c = compact(l).replace(/[()]/g, '');
     if (!/\d/.test(c)) return null;
-    const m = c.replace(/[^0-9xX×*%]/g, '').replace(/[xX×*%]/g, '?');
+    // K PLUS / Krungthai print 10-digit accounts as 3-1-5-1 ("xxx-x-x9410-x"); OCR sometimes doubles
+    // the last x ("x9410-xx"), which would shift every digit — trim that group back to one
+    const g = c.replace(/[^0-9xX×*%\-–]/g, '').split(/[-–]/);
+    if (g.length === 4 && g[0].length === 3 && g[1].length === 1 && g[2].length === 5 && g[3].length > 1 && /^[xX×*%]+$/.test(g[3])) g[3] = g[3][0];
+    const m = g.join('').replace(/[xX×*%]/g, '?');
     return (m.match(/\d/g) || []).length >= 3 && m.length <= 16 ? m : null;
   }
   // How many visible digits two masks share at the same position (from the right); -1 if any differ.
@@ -336,8 +346,11 @@
       }
       return -1;
     };
+    let senderAcctLine = -1;
     const acctAfter = (i, stopAt, side) => {
-      const k = acctLineAfter(i, stopAt);
+      let k = acctLineAfter(i, stopAt);
+      if (side === 'sender') senderAcctLine = k;
+      else if (k >= 0 && k === senderAcctLine) k = -1; // the sender's own account line is never the receiver's
       r[side + 'Mask'] = k >= 0 ? acctMask(lines[k]) : null;
       return k >= 0 ? acctDigits(lines[k]) : null;
     };
